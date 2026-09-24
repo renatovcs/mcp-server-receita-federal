@@ -12,7 +12,7 @@ from cachetools import cached, TTLCache
 
 from src.config import settings
 from src.database import db_manager
-from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica
+from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica, AnaliseMercado, BairroEstatistica
 
 logger = structlog.get_logger("anotae_mcp.tools")
 
@@ -30,7 +30,7 @@ def _get_active_table_and_fts_func(conn) -> tuple[str, str]:
 search_cache = TTLCache(maxsize=1024, ttl=3600)    # 1024 buscas por 1 hora
 details_cache = TTLCache(maxsize=2048, ttl=3600)   # 2048 CNPJs por 1 hora
 cities_cache = TTLCache(maxsize=10, ttl=86400)     # Cidades por 24 horas (quase estático)
-
+market_cache = TTLCache(maxsize=512, ttl=3600)     # 512 análises de mercado por 1 hora
 
 @cached(cache=search_cache)
 def search_providers_by_service(
@@ -222,3 +222,101 @@ def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica
     except Exception as e:
         logger.error(f"Erro ao listar municípios disponíveis: {e}", exc_info=True)
         raise RuntimeError(f"Falha ao listar municípios: {e}") from e
+
+@cached(cache=market_cache)
+def analyze_market_competition(
+    query: str,
+    uf: Optional[str] = None,
+    municipio: Optional[str] = None,
+) -> Optional[AnaliseMercado]:
+    """
+    Executa uma análise agregada de mercado para um segmento específico (query).
+    
+    Returns:
+        Um relatório AnaliseMercado ou None se o segmento não existir.
+    """
+    cleaned_query = query.strip()
+    if not cleaned_query:
+        return None
+
+    cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
+    cleaned_municipio = municipio.strip() if municipio and municipio.strip() else None
+
+    conn = db_manager.get_connection()
+    table_name, fts_func = _get_active_table_and_fts_func(conn)
+
+    sql_stats = f"""
+        SELECT 
+            COUNT(*) as total_empresas,
+            COALESCE(AVG(capital_social), 0.0) as media_capital,
+            COALESCE(AVG(idade_anos), 0.0) as media_idade
+        FROM (
+            SELECT 
+                *,
+                {fts_func}(cnpj, ?) AS score
+            FROM {table_name}
+        ) sq
+        WHERE score IS NOT NULL
+          AND (? IS NULL OR UPPER(uf) = UPPER(?))
+          AND (? IS NULL OR LOWER(municipio) = LOWER(?));
+    """
+
+    sql_bairros = f"""
+        SELECT 
+            COALESCE(bairro, 'NÃO INFORMADO') as bairro,
+            COUNT(*) as quantidade
+        FROM (
+            SELECT 
+                *,
+                {fts_func}(cnpj, ?) AS score
+            FROM {table_name}
+        ) sq
+        WHERE score IS NOT NULL
+          AND (? IS NULL OR UPPER(uf) = UPPER(?))
+          AND (? IS NULL OR LOWER(municipio) = LOWER(?))
+        GROUP BY bairro
+        ORDER BY quantidade DESC
+        LIMIT 5;
+    """
+
+    params = [
+        cleaned_query,
+        cleaned_uf,
+        cleaned_uf,
+        cleaned_municipio,
+        cleaned_municipio,
+    ]
+
+    try:
+        cursor = conn.execute(sql_stats, params)
+        row = cursor.fetchone()
+        
+        if not row or row[0] == 0:
+            return None
+            
+        total_empresas = int(row[0])
+        media_capital = round(float(row[1]), 2)
+        media_idade = round(float(row[2]), 1)
+        
+        cursor_bairros = conn.execute(sql_bairros, params)
+        bairros_rows = cursor_bairros.fetchall()
+        
+        top_bairros = [
+            BairroEstatistica(bairro=b[0], quantidade=int(b[1])) 
+            for b in bairros_rows
+        ]
+        
+        return AnaliseMercado(
+            termo_buscado=cleaned_query,
+            uf=cleaned_uf,
+            municipio=cleaned_municipio,
+            total_empresas=total_empresas,
+            capital_social_medio=media_capital,
+            idade_media_anos=media_idade,
+            top_5_bairros_concorrencia=top_bairros
+        )
+
+    except Exception as e:
+        logger.error(f"Erro ao analisar concorrência de mercado para query='{cleaned_query}': {e}", exc_info=True)
+        raise RuntimeError(f"Falha na análise de mercado: {e}") from e
+

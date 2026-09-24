@@ -182,6 +182,14 @@ Lista os municípios cobertos pela base e a contagem de empresas ativas em cada 
   * `uf` *(string, opcional)*: Filtra apenas as cidades do estado especificado (ex: `"RJ"` ou `"PR"`).
 * **Retorno:** Lista contendo `municipio`, `uf` e `total_empresas`.
 
+### 4. `analyze_market_competition`
+Executa uma análise de inteligência de mercado agregando dados reais sobre um segmento.
+* **Parâmetros:**
+  * `query` *(string, obrigatório)*: Segmento ou nicho de mercado (ex: `"energia solar"`, `"construtora"`).
+  * `uf` *(string, opcional)*: Foca a análise em um Estado (ex: `"RJ"` ou `"PR"`).
+  * `municipio` *(string, opcional)*: Foca a análise em um município (ex: `"Curitiba"`).
+* **Retorno:** Relatório detalhado com o total de empresas concorrentes, média de capital social no setor, média de tempo de mercado (idade das empresas) e os 5 bairros com maior concentração deste serviço.
+
 ---
 
 ## 📌 Exemplos de Prompts para o Assistente

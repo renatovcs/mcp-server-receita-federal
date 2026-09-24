@@ -8,11 +8,12 @@ from typing import Any, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from src.config import settings
-from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica
+from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica, AnaliseMercado
 from src.tools import (
     get_provider_details as db_get_provider_details,
     list_available_cities as db_list_available_cities,
     search_providers_by_service as db_search_providers_by_service,
+    analyze_market_competition as db_analyze_market_competition,
 )
 
 # Cria a instância do servidor MCP com metadados do serviço
@@ -61,3 +62,20 @@ def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica
         uf: (Opcional) Filtrar cidades por Estado (ex: 'PR' ou 'RJ').
     """
     return db_list_available_cities(uf=uf)
+
+@mcp_server.tool()
+def analyze_market_competition(
+    query: str,
+    uf: Optional[str] = None,
+    municipio: Optional[str] = None,
+) -> Optional[AnaliseMercado]:
+    """
+    Executa uma análise de mercado avançada sobre um segmento específico.
+    Retorna estatísticas consolidadas: densidade da concorrência, capital social médio, tempo de mercado e os bairros com mais concorrentes.
+
+    Args:
+        query: Termo de busca que define o segmento/nicho de mercado (ex: 'energia solar', 'construtora', 'pet shop').
+        uf: (Opcional) Estado para concentrar a análise (ex: 'PR' ou 'RJ').
+        municipio: (Opcional) Nome da cidade para focar a análise (ex: 'Curitiba', 'Rio de Janeiro').
+    """
+    return db_analyze_market_competition(query=query, uf=uf, municipio=municipio)

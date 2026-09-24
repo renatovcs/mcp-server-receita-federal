@@ -56,6 +56,21 @@ class EmpresaDetalhe(BaseModel):
     telefone_2: Optional[str] = None
     email: Optional[str] = None
 
+class BairroEstatistica(BaseModel):
+    """Estatística de densidade por bairro."""
+    bairro: str = Field(..., description="Nome do bairro")
+    quantidade: int = Field(..., description="Número de empresas neste bairro")
+
+class AnaliseMercado(BaseModel):
+    """Relatório analítico sobre um segmento de mercado específico."""
+    termo_buscado: str = Field(..., description="Segmento pesquisado (ex: energia solar)")
+    uf: Optional[str] = Field(None, description="Estado analisado")
+    municipio: Optional[str] = Field(None, description="Município analisado")
+    total_empresas: int = Field(..., description="Total de empresas ativas encontradas no segmento")
+    capital_social_medio: float = Field(..., description="Capital social médio no segmento")
+    idade_media_anos: float = Field(..., description="Tempo de mercado médio (experiência) em anos")
+    top_5_bairros_concorrencia: List[BairroEstatistica] = Field(..., description="Os 5 bairros com mais empresas deste segmento")
+
 class MunicipioEstatistica(BaseModel):
     """Estatísticas consolidadas de empresas por município."""
     municipio: str = Field(..., description="Nome do município")
