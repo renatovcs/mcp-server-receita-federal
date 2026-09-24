@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+.pytest_cache/
+.DS_Store
+.env
+# Note: duckdb / parquet can be tracked or kept in Git LFS if pushing to GitHub
+data/*.duckdb
+data/*.parquet

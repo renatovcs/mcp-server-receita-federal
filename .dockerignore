@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.venv
+tests
+README.md
+data/*.duckdb
+data/*.parquet

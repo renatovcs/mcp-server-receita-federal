@@ -1,0 +1,16 @@
+services:
+  anotae-mcp-receita:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anotae-mcp-receita
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8005
+      - DUCKDB_PATH=/app/data/rmc_empresas.duckdb
+    volumes:
+      # Monta o banco DuckDB e Parquet em modo somente leitura (read-only)
+      - ./data:/app/data:ro
