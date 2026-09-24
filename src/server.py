@@ -15,6 +15,7 @@ from src.tools import (
     search_providers_by_service as db_search_providers_by_service,
     analyze_market_competition as db_analyze_market_competition,
     get_biggest_companies_by_capital as db_get_biggest_companies_by_capital,
+    search_company_by_name as db_search_company_by_name,
 )
 
 # Cria a instância do servidor MCP com metadados do serviço
@@ -99,3 +100,20 @@ def get_biggest_companies_by_capital(
         limit: Quantidade máxima de resultados (padrão 5, máx 100).
     """
     return db_get_biggest_companies_by_capital(query=query, uf=uf, municipio=municipio, limit=limit)
+
+@mcp_server.tool()
+def search_company_by_name(
+    name: str,
+    uf: Optional[str] = None,
+    limit: int = 15,
+) -> List[EmpresaResumo]:
+    """
+    Busca uma empresa ativa diretamente pelo seu NOME (Razão Social ou Nome Fantasia).
+    Utilidade: Quando o usuário sabe o nome da empresa e quer encontrar o seu CNPJ ou detalhes.
+
+    Args:
+        name: O nome da empresa (ex: 'Oficina do João', 'Tech Solutions LTDA').
+        uf: (Opcional) Limitar a busca a um Estado (ex: 'PR', 'RJ').
+        limit: Quantidade máxima de resultados (padrão 15).
+    """
+    return db_search_company_by_name(name=name, uf=uf, limit=limit)

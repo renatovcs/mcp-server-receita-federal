@@ -32,7 +32,7 @@ details_cache = TTLCache(maxsize=2048, ttl=3600)   # 2048 CNPJs por 1 hora
 cities_cache = TTLCache(maxsize=10, ttl=86400)     # Cidades por 24 horas (quase estático)
 market_cache = TTLCache(maxsize=512, ttl=3600)     # 512 análises de mercado por 1 hora
 capital_cache = TTLCache(maxsize=512, ttl=3600)    # 512 buscas por capital
-
+name_cache = TTLCache(maxsize=1024, ttl=3600)      # 1024 buscas nominais por 1 hora
 
 @cached(cache=search_cache)
 def search_providers_by_service(
@@ -383,4 +383,59 @@ def get_biggest_companies_by_capital(
     except Exception as e:
         logger.error(f"Erro ao buscar maiores empresas para query='{cleaned_query}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na busca por capital: {e}") from e
+
+@cached(cache=name_cache)
+def search_company_by_name(
+    name: str,
+    uf: Optional[str] = None,
+    limit: int = 15,
+) -> List[EmpresaResumo]:
+    """
+    Busca empresas diretamente pela Razão Social ou Nome Fantasia.
+    """
+    cleaned_name = name.strip()
+    if not cleaned_name or len(cleaned_name) < 3:
+        return []
+
+    safe_limit = max(1, min(limit, settings.MAX_SEARCH_LIMIT))
+    cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
+
+    conn = db_manager.get_connection()
+    table_name, _ = _get_active_table_and_fts_func(conn)
+
+    sql = f"""
+        SELECT 
+            cnpj,
+            razao_social,
+            nome_fantasia,
+            municipio,
+            uf,
+            COALESCE(idade_anos, 0.0) as idade_anos,
+            descricao_cnae_principal,
+            0.0 as fts_score
+        FROM {table_name}
+        WHERE 
+            (razao_social ILIKE ? OR nome_fantasia ILIKE ?)
+            AND (? IS NULL OR UPPER(uf) = UPPER(?))
+        ORDER BY idade_anos DESC
+        LIMIT ?;
+    """
+
+    search_pattern = f"%{cleaned_name}%"
+    params = [
+        search_pattern,
+        search_pattern,
+        cleaned_uf,
+        cleaned_uf,
+        safe_limit,
+    ]
+
+    try:
+        cursor = conn.execute(sql, params)
+        column_names = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+        return [EmpresaResumo(**dict(zip(column_names, row))) for row in rows]
+    except Exception as e:
+        logger.error(f"Erro na busca nominal por '{cleaned_name}': {e}", exc_info=True)
+        raise RuntimeError(f"Falha na busca nominal: {e}") from e
 

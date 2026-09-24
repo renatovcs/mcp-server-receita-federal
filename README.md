@@ -199,6 +199,14 @@ Busca os líderes de mercado e empresas de grande porte em um segmento, ordenada
   * `limit` *(integer, opcional, padrão 5)*: Quantidade de empresas a retornar.
 * **Retorno:** Lista de empresas (CNPJ, Razão Social, Capital Social, Idade, etc.) ordenadas do maior capital para o menor.
 
+### 6. `search_company_by_name`
+Busca uma empresa ativa diretamente pelo seu nome exato ou parte dele (Razão Social ou Nome Fantasia).
+* **Parâmetros:**
+  * `name` *(string, obrigatório)*: Nome da empresa (ex: `"Oficina do João"`, `"Tech Solutions LTDA"`).
+  * `uf` *(string, opcional)*: Limitar a busca a um Estado (ex: `"PR"` ou `"RJ"`).
+  * `limit` *(integer, opcional, padrão 15)*: Quantidade de empresas a retornar.
+* **Retorno:** Lista de empresas correspondentes.
+
 ---
 
 ## 📌 Exemplos de Prompts para o Assistente
