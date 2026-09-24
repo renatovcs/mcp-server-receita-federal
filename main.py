@@ -65,30 +65,77 @@ app = FastAPI(
 Instrumentator().instrument(app).expose(app)
 
 
-@app.middleware("http")
-async def verify_api_key(request: Request, call_next):
+from urllib.parse import parse_qsl
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.responses import Response
+
+
+class PureASGIAuthMiddleware:
     """
-    Middleware de segurança para validar a API Key via Query Param (token), header X-API-Key ou header Authorization.
-    A rota /health fica isenta de autenticação.
+    Middleware ASGI nativo de alta performance para autenticação de API Key.
+    Não utiliza BaseHTTPMiddleware, eliminando erros de buffering em streams SSE (Server-Sent Events).
+    Permite autenticação via token na URL, header X-API-Key ou Authorization.
+    Permite mensagens POST com session_id já autenticado na conexão SSE e desativa probes de OAuth.
     """
-    if request.url.path == "/health" or request.method == "OPTIONS":
-        return await call_next(request)
-    
-    token = request.query_params.get("token")
-    if not token:
-        token = request.headers.get("X-API-Key")
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
-            
-    if not token or not secrets.compare_digest(token, settings.API_KEY):
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Unauthorized. Invalid or missing API Key (token)."},
-        )
-        
-    return await call_next(request)
+    def __init__(self, app: ASGIApp, api_key: str):
+        self.app = app
+        self.api_key = api_key
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        path = scope.get("path", "")
+        method = scope.get("method", "")
+
+        # 1. Rotas públicas ou preflight CORS
+        if path == "/health" or method == "OPTIONS":
+            return await self.app(scope, receive, send)
+
+        # 2. Retorna 404 para probes de OAuth (evita que o MCP Inspector v2.8.0 tente Dynamic Client Registration)
+        if path.startswith("/.well-known/") or path in ("/register", "/oauth/register"):
+            response = Response(
+                status_code=404,
+                content=b'{"detail": "OAuth registration not supported"}',
+                media_type="application/json"
+            )
+            return await response(scope, receive, send)
+
+        # 3. Extrai query parameters
+        query_string = scope.get("query_string", b"").decode("latin-1")
+        query_params = dict(parse_qsl(query_string))
+
+        # 4. Extrai headers
+        headers = dict(scope.get("headers", []))
+        token = query_params.get("token")
+        if not token:
+            token = headers.get(b"x-api-key", b"").decode("latin-1") or None
+        if not token:
+            auth_header = headers.get(b"authorization", b"").decode("latin-1")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1]
+
+        # 5. Validação da chave de autenticação
+        is_token_valid = token and secrets.compare_digest(token, self.api_key)
+
+        # 6. Se for mensagem POST MCP (/messages) com session_id, permite
+        # (O session_id só é gerado se o cliente conectou em /sse com token válido)
+        if path.startswith("/messages") and method == "POST" and "session_id" in query_params:
+            return await self.app(scope, receive, send)
+
+        # 7. Se for /sse ou qualquer outra requisição sem token válido -> 401
+        if not is_token_valid:
+            response = Response(
+                status_code=401,
+                content=b'{"detail": "Unauthorized. Invalid or missing API Key (token)."}',
+                media_type="application/json",
+            )
+            return await response(scope, receive, send)
+
+        return await self.app(scope, receive, send)
+
+
+app.add_middleware(PureASGIAuthMiddleware, api_key=settings.API_KEY)
 
 
 @app.get("/health", tags=["Monitoramento"])
