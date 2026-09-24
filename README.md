@@ -217,6 +217,9 @@ Conectado ao seu MCP, você pode fazer perguntas naturais ao assistente:
 * *"Procure empresas de energia solar no Rio de Janeiro e me passe os dados cadastrais da primeira colocada."*
 * *"Quais municípios do estado do Rio de Janeiro estão disponíveis e quantas empresas cada um tem?"*
 * *"Consulte os detalhes completos da empresa de CNPJ 00.000.000/0001-00."*
+* *"Faça uma análise de concorrência do mercado de transporte escolar no Rio de Janeiro. Quais os bairros com mais empresas?"*
+* *"Quais são as 5 maiores construtoras de Curitiba baseadas no capital social declarado?"*
+* *"Existe alguma empresa chamada 'Oficina do João' no estado do Paraná?"*
 
 ---
 
