@@ -13,6 +13,7 @@ import uvicorn
 from src.config import settings
 from src.database import db_manager
 from src.server import mcp_server
+from mcp.server.transport_security import TransportSecuritySettings
 
 # Configuração de Logs Estruturados
 logging.basicConfig(
@@ -85,7 +86,15 @@ async def health_check() -> JSONResponse:
 
 # Acopla a aplicação Starlette SSE do MCP Server às rotas da aplicação ASGI
 # O MCP Server expõe /sse (Stream de eventos SSE) e /messages (POST para recepção de comandos JSON-RPC)
-app.mount("", mcp_server.sse_app())
+# Desativa a validação rígida de localhost para permitir conexões via IP público ou domínio remoto
+app.mount(
+    "",
+    mcp_server.sse_app(
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        )
+    ),
+)
 
 
 if __name__ == "__main__":
