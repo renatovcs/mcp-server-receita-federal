@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger("create_fts_index")
 
 
-def build_fts_index(db_path: Path, rebuild: bool = False):
+def build_fts_index(db_path: Path, table_name: str = "tb_empresas_ativas_rmc", rebuild: bool = False):
     if not db_path.exists():
         logger.error(f"Arquivo de banco de dados não encontrado: {db_path}")
         sys.exit(1)
@@ -34,7 +34,6 @@ def build_fts_index(db_path: Path, rebuild: bool = False):
         logger.info("Carregando extensão FTS...")
         conn.execute("INSTALL fts; LOAD fts;")
 
-        table_name = "tb_empresas_ativas_rmc"
         pk_column = "cnpj"
         index_column = "descricao_cnae_principal"
 
@@ -101,7 +100,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cria índice Full-Text Search no DuckDB da Receita.")
     default_db = Path(__file__).resolve().parent.parent / "data" / "rmc_empresas.duckdb"
     parser.add_argument("--db-path", type=Path, default=default_db, help="Caminho do arquivo DuckDB")
+    parser.add_argument("--table", type=str, default="tb_empresas_ativas_rmc", help="Nome da tabela alvo no DuckDB")
     parser.add_argument("--rebuild", action="store_true", help="Força a reconstrução do índice caso já exista")
 
     args = parser.parse_args()
-    build_fts_index(args.db_path, rebuild=args.rebuild)
+    build_fts_index(args.db_path, table_name=args.table, rebuild=args.rebuild)
