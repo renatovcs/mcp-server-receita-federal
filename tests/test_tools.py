@@ -1,5 +1,6 @@
 """
 Suíte de testes de integração e validação das ferramentas MCP com DuckDB Singleton.
+Valida dados consolidados de múltiplas regiões (PR e RJ).
 """
 
 import unittest
@@ -32,17 +33,24 @@ class TestMCPTools(unittest.TestCase):
         self.assertIsInstance(cities, list)
         self.assertGreater(len(cities), 0)
         
-        # Curitiba deve ser o primeiro devido ao maior volume
-        first_city = cities[0]
-        self.assertIn("municipio", first_city)
-        self.assertIn("total_empresas", first_city)
-        self.assertEqual(first_city["municipio"], "Curitiba")
-        self.assertGreater(first_city["total_empresas"], 400000)
+        city_names = [c["municipio"] for c in cities]
+        self.assertIn("Rio de Janeiro", city_names)
+        self.assertIn("Curitiba", city_names)
 
-    def test_02_search_providers_by_service(self):
-        # Busca FTS por ar condicionado em Curitiba
+        # Filtro por UF
+        rj_cities = list_available_cities(uf="RJ")
+        for c in rj_cities:
+            self.assertEqual(c["uf"], "RJ")
+
+        pr_cities = list_available_cities(uf="PR")
+        for c in pr_cities:
+            self.assertEqual(c["uf"], "PR")
+
+    def test_02_search_providers_by_service_pr(self):
+        # Busca FTS por ar condicionado em Curitiba (PR)
         results = search_providers_by_service(
             query="ar condicionado",
+            uf="PR",
             municipio="Curitiba",
             limit=5,
         )
@@ -54,23 +62,39 @@ class TestMCPTools(unittest.TestCase):
             self.assertIn("cnpj", provider)
             self.assertIn("razao_social", provider)
             self.assertIn("fts_score", provider)
-            self.assertIn("descricao_cnae_principal", provider)
+            self.assertEqual(provider["uf"], "PR")
             self.assertEqual(provider["municipio"].lower(), "curitiba")
             self.assertGreater(provider["fts_score"], 0)
 
-    def test_03_search_providers_unfiltered_city(self):
+    def test_03_search_providers_by_service_rj(self):
+        # Busca FTS no Rio de Janeiro (RJ)
         results = search_providers_by_service(
-            query="refrigeracao",
-            municipio=None,
-            limit=3,
+            query="energia solar",
+            uf="RJ",
+            limit=5,
         )
         self.assertIsInstance(results, list)
         self.assertGreater(len(results), 0)
-        self.assertLessEqual(len(results), 3)
+        self.assertLessEqual(len(results), 5)
 
-    def test_04_get_provider_details_masked_and_unmasked(self):
+        for provider in results:
+            self.assertIn("cnpj", provider)
+            self.assertEqual(provider["uf"], "RJ")
+            self.assertGreater(provider["fts_score"], 0)
+
+    def test_04_search_providers_unfiltered(self):
+        # Busca sem filtros (deve retornar os melhores em score independente da UF)
+        results = search_providers_by_service(
+            query="refrigeracao",
+            limit=4,
+        )
+        self.assertIsInstance(results, list)
+        self.assertGreater(len(results), 0)
+        self.assertLessEqual(len(results), 4)
+
+    def test_05_get_provider_details_masked_and_unmasked(self):
         # 1. Pega um prestador válido da busca
-        search_sample = search_providers_by_service(query="ar condicionado", limit=1)
+        search_sample = search_providers_by_service(query="solar", limit=1)
         self.assertTrue(len(search_sample) > 0)
         original_cnpj = search_sample[0]["cnpj"]
 
@@ -88,7 +112,7 @@ class TestMCPTools(unittest.TestCase):
         self.assertIsNotNone(details_unmasked)
         self.assertEqual(details_unmasked["cnpj"], original_cnpj)
 
-    def test_05_get_provider_details_nonexistent(self):
+    def test_06_get_provider_details_nonexistent(self):
         details = get_provider_details("00.000.000/0000-00")
         self.assertIsNone(details)
 

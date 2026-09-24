@@ -19,7 +19,7 @@ class Settings(BaseModel):
         default_factory=lambda: Path(
             os.getenv(
                 "DUCKDB_PATH",
-                str(Path(__file__).resolve().parent.parent / "data" / "rmc_empresas.duckdb")
+                str(Path(__file__).resolve().parent.parent / "data" / "empresas_ativas.duckdb")
             )
         )
     )

@@ -51,9 +51,14 @@ class DuckDBManager:
                 self._connection.execute("INSTALL fts; LOAD fts;")
             
             # Obtém contagem total para métricas do healthcheck
-            res = self._connection.execute(
-                "SELECT COUNT(*) FROM tb_empresas_ativas_rmc"
-            ).fetchone()
+            try:
+                res = self._connection.execute(
+                    "SELECT COUNT(*) FROM tb_empresas_ativas"
+                ).fetchone()
+            except Exception:
+                res = self._connection.execute(
+                    "SELECT COUNT(*) FROM tb_empresas_ativas_rmc"
+                ).fetchone()
             self._total_empresas = res[0] if res else 0
 
             logger.info(

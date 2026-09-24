@@ -10,7 +10,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8005
-      - DUCKDB_PATH=/app/data/rmc_empresas.duckdb
+      - DUCKDB_PATH=/app/data/empresas_ativas.duckdb
     volumes:
       # Monta o banco DuckDB e Parquet em modo somente leitura (read-only)
       - ./data:/app/data:ro

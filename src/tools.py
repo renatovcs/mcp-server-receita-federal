@@ -2,6 +2,7 @@
 Implementação das ferramentas (Tools) do Model Context Protocol (MCP).
 Todas as consultas utilizam estritamente Prepared Statements (bind variables com `?`).
 Busca textual otimizada via DuckDB Full-Text Search (FTS BM25).
+Suporta busca em todas as regiões cadastradas (Paraná, Rio de Janeiro e futuras expansões).
 """
 
 import logging
@@ -13,18 +14,28 @@ from src.database import db_manager
 logger = logging.getLogger("anotae_mcp.tools")
 
 
+def _get_active_table_and_fts_func(conn) -> tuple[str, str]:
+    """Detecta dinamicamente a tabela disponível no DuckDB (tb_empresas_ativas ou tb_empresas_ativas_rmc)."""
+    tables = [t[0] for t in conn.execute("SHOW TABLES;").fetchall()]
+    if "tb_empresas_ativas" in tables:
+        return "tb_empresas_ativas", "fts_main_tb_empresas_ativas.match_bm25"
+    return "tb_empresas_ativas_rmc", "fts_main_tb_empresas_ativas_rmc.match_bm25"
+
+
 def search_providers_by_service(
     query: str,
+    uf: Optional[str] = None,
     municipio: Optional[str] = None,
     limit: int = 15,
 ) -> List[Dict[str, Any]]:
     """
-    Busca prestadores de serviço ativos na RMC utilizando índice Full-Text Search (FTS BM25)
+    Busca prestadores de serviço ativos utilizando índice Full-Text Search (FTS BM25)
     na descrição da atividade econômica principal (CNAE).
 
     Args:
-        query: Termo ou expressão do serviço (ex: 'ar condicionado', 'eletricista', 'pintura').
-        municipio: Filtro opcional por município da RMC (ex: 'Curitiba', 'São José dos Pinhais').
+        query: Termo ou expressão do serviço (ex: 'ar condicionado', 'eletricista', 'energia solar').
+        uf: Filtro opcional por Unidade Federativa / Estado (ex: 'PR', 'RJ').
+        municipio: Filtro opcional por município (ex: 'Curitiba', 'Rio de Janeiro', 'Niterói').
         limit: Quantidade máxima de resultados (padrão 15, máximo 100).
 
     Returns:
@@ -34,13 +45,15 @@ def search_providers_by_service(
     if not cleaned_query:
         return []
 
-    # Sanitização e limitação defensiva de paginação
+    # Sanitização defensiva de parâmetros
     safe_limit = max(1, min(limit, settings.MAX_SEARCH_LIMIT))
+    cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
     cleaned_municipio = municipio.strip() if municipio and municipio.strip() else None
 
     conn = db_manager.get_connection()
+    table_name, fts_func = _get_active_table_and_fts_func(conn)
 
-    sql = """
+    sql = f"""
         SELECT 
             cnpj,
             razao_social,
@@ -63,17 +76,25 @@ def search_providers_by_service(
         FROM (
             SELECT 
                 *,
-                fts_main_tb_empresas_ativas_rmc.match_bm25(cnpj, ?) AS score
-            FROM tb_empresas_ativas_rmc
+                {fts_func}(cnpj, ?) AS score
+            FROM {table_name}
         ) sq
         WHERE score IS NOT NULL
+          AND (? IS NULL OR UPPER(uf) = UPPER(?))
           AND (? IS NULL OR LOWER(municipio) = LOWER(?))
         ORDER BY score DESC, idade_anos DESC
         LIMIT ?;
     """
 
-    params = [cleaned_query, cleaned_municipio, cleaned_municipio, safe_limit]
-    
+    params = [
+        cleaned_query,
+        cleaned_uf,
+        cleaned_uf,
+        cleaned_municipio,
+        cleaned_municipio,
+        safe_limit,
+    ]
+
     try:
         cursor = conn.execute(sql, params)
         column_names = [desc[0] for desc in cursor.description]
@@ -108,8 +129,9 @@ def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
         masked_cnpj = cleaned_cnpj
 
     conn = db_manager.get_connection()
+    table_name, _ = _get_active_table_and_fts_func(conn)
 
-    sql = """
+    sql = f"""
         SELECT 
             cnpj,
             cnpj_basico,
@@ -137,7 +159,7 @@ def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
             telefone_1,
             telefone_2,
             email
-        FROM tb_empresas_ativas_rmc
+        FROM {table_name}
         WHERE cnpj = ? OR cnpj = ?
         LIMIT 1;
     """
@@ -156,27 +178,31 @@ def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
         raise RuntimeError(f"Falha na consulta por CNPJ: {e}") from e
 
 
-def list_available_cities() -> List[Dict[str, Any]]:
+def list_available_cities(uf: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Retorna os municípios disponíveis na base da Região Metropolitana de Curitiba (RMC)
-    com a quantidade de empresas ativas em cada localidade.
+    Retorna os municípios disponíveis na base com a contagem de empresas ativas.
+    Pode ser filtrado opcionalmente por UF (ex: 'PR' ou 'RJ').
 
     Returns:
         Lista ordenada por volume de empresas ativas.
     """
     conn = db_manager.get_connection()
+    table_name, _ = _get_active_table_and_fts_func(conn)
+    cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
 
-    sql = """
+    sql = f"""
         SELECT 
             municipio,
+            uf,
             COUNT(*) AS total_empresas
-        FROM tb_empresas_ativas_rmc
-        GROUP BY municipio
+        FROM {table_name}
+        WHERE (? IS NULL OR UPPER(uf) = UPPER(?))
+        GROUP BY municipio, uf
         ORDER BY total_empresas DESC;
     """
 
     try:
-        cursor = conn.execute(sql)
+        cursor = conn.execute(sql, [cleaned_uf, cleaned_uf])
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
         return [dict(zip(column_names, row)) for row in rows]
