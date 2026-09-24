@@ -1,0 +1,27 @@
+name: Deploy to Oracle VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Executar Deploy via SSH na Oracle VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Entra no diretório do projeto, atualiza o código e faz rebuild do docker
+            cd mcp-server-receita-federal
+            git pull
+            sudo docker compose build
+            sudo docker compose up -d

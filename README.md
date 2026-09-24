@@ -258,3 +258,17 @@ mcp-server-receita-federal/
 ├── requirements.txt                      # Dependências do microsserviço
 └── README.md                             # Esta documentação
 ```
+
+---
+
+## 🤖 CI/CD Automático (GitHub Actions)
+
+Este repositório conta com um fluxo de **Continuous Deployment (CD)** configurado em `.github/workflows/deploy.yml`. 
+Toda vez que você fizer um `git push` na branch `main`, o GitHub conectará automaticamente no seu servidor Oracle via SSH e fará o deploy da nova versão.
+
+Para que isso funcione, adicione as seguintes **Secrets** no seu repositório no GitHub (*Settings > Secrets and variables > Actions*):
+
+* `SSH_HOST`: O IP público do seu servidor (ex: `141.148.38.30`)
+* `SSH_USERNAME`: O usuário de acesso (ex: `ubuntu`)
+* `SSH_PRIVATE_KEY`: O conteúdo da sua chave privada (geralmente em `~/.ssh/id_rsa` ou `~/.ssh/id_ed25519`)
+
