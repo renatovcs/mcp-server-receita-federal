@@ -8,6 +8,8 @@ Suporta busca em todas as regiões cadastradas (Paraná, Rio de Janeiro e futura
 import re
 from typing import Any, Dict, List, Optional
 import structlog
+from cachetools import cached, TTLCache
+
 from src.config import settings
 from src.database import db_manager
 from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica
@@ -23,6 +25,14 @@ def _get_active_table_and_fts_func(conn) -> tuple[str, str]:
     return "tb_empresas_ativas_rmc", "fts_main_tb_empresas_ativas_rmc.match_bm25"
 
 
+# Configuração dos Caches em Memória
+# Evita reconsultar o DuckDB para perguntas repetitivas, economizando CPU.
+search_cache = TTLCache(maxsize=1024, ttl=3600)    # 1024 buscas por 1 hora
+details_cache = TTLCache(maxsize=2048, ttl=3600)   # 2048 CNPJs por 1 hora
+cities_cache = TTLCache(maxsize=10, ttl=86400)     # Cidades por 24 horas (quase estático)
+
+
+@cached(cache=search_cache)
 def search_providers_by_service(
     query: str,
     uf: Optional[str] = None,
@@ -106,6 +116,7 @@ def search_providers_by_service(
         raise RuntimeError(f"Falha na consulta FTS: {e}") from e
 
 
+@cached(cache=details_cache)
 def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
     """
     Retorna os detalhes cadastrais completos de uma empresa ativa pelo CNPJ.
@@ -179,6 +190,7 @@ def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
         raise RuntimeError(f"Falha na consulta por CNPJ: {e}") from e
 
 
+@cached(cache=cities_cache)
 def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica]:
     """
     Retorna os municípios disponíveis na base com a contagem de empresas ativas.
