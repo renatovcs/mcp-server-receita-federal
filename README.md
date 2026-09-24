@@ -1,117 +1,222 @@
 # 🏢 anotae-mcp-receita
 
-Servidor público e independente de **Model Context Protocol (MCP)** com transporte **SSE (Server-Sent Events)** para consulta analítica de dados abertos da Receita Federal (empresas ativas na Região Metropolitana de Curitiba - RMC).
+Servidor público de **Model Context Protocol (MCP)** com transporte **SSE (Server-Sent Events)** para consulta analítica de dados abertos da Receita Federal. 
+
+Permite que agentes de Inteligência Artificial (LangGraph, assistentes LLM, Cursor, Claude Desktop, etc.) busquem e validem prestadores de serviços e empresas ativas com base em dados cadastrais oficiais e busca semântica/textual BM25.
 
 ---
 
-## 📌 1. Visão Geral e Arquitetura
+## 🌐 Endpoints Oficiais (Em Produção)
 
-O `anotae-mcp-receita` foi desenvolvido para permitir que agentes de inteligência artificial (LangGraph, assistentes LLM, Claude Desktop, Cursor, etc.) busquem e recomendem prestadores de serviços formais com base em dados cadastrais públicos.
-
-### 🛡️ Princípios Arquiteturais:
-1. **Isolamento de Domínio Total:** O microsserviço não possui acesso ao banco transacional (PostgreSQL) nem a regras de negócio da aplicação principal. Trata-se de um serviço independente de catálogo público.
-2. **DuckDB Singleton em Modo `read_only=True`:** A conexão com o arquivo DuckDB é inicializada uma única vez no evento de `lifespan` da aplicação ASGI FastAPI e compartilhada entre as requisições. Não há custo de abrir/fechar conexões por chamada.
-3. **Segurança contra Injeção SQL:** Todas as consultas utilizam estritamente *Prepared Statements* (bind variables com `?`). Interpolação de strings em SQL é proibida no código.
-4. **Busca Textual Otimizada via Full-Text Search (FTS BM25):** Cláusulas lentas como `ILIKE` foram eliminadas em favor da extensão nativa FTS do DuckDB, com stemmer em português (`portuguese`) e normalização automática de acentos (`strip_accents=1`). As buscas em 756 mil registros executam em ~100 milissegundos.
+* **MCP SSE Endpoint (para clientes e agentes):**
+  ```text
+  https://mcp-receita.anotae.app.br/sse
+  ```
+* **Status / Healthcheck (JSON via navegador ou curl):**
+  ```text
+  https://mcp-receita.anotae.app.br/health
+  ```
+* **Cobertura Atual:** **+2.328.000 empresas ativas**
+  * **Rio de Janeiro (RJ):** ~1.571.000 empresas ativas
+  * **Paraná (PR):** ~756.000 empresas ativas
 
 ---
 
-## 📁 2. Estrutura do Repositório
+## 🔌 Como Conectar ao MCP Server
 
-```text
-anotae-mcp-receita/
-├── data/
-│   ├── rmc_empresas.duckdb              # Base DuckDB (756k empresas ativas + índice FTS)
-│   └── empresas_ativas_rmc.parquet      # Dataset colunar original em Parquet
-├── scripts/
-│   └── create_fts_index.py              # Script utilitário para criação/reconstrução do índice FTS
-├── src/
-│   ├── __init__.py
-│   ├── config.py                        # Configurações com tipagem Pydantic
-│   ├── database.py                      # Conexão Singleton DuckDB (read_only)
-│   ├── tools.py                         # Implementação das ferramentas com prepared statements
-│   └── server.py                        # Instância do MCPServer e registro das tools
-├── tests/
-│   ├── __init__.py
-│   └── test_tools.py                    # Testes automatizados das ferramentas
-├── Dockerfile                           # Containerização leve Python 3.11-slim
-├── docker-compose.yml                   # Orquestração do container com volume read-only
-├── main.py                              # Entrada da aplicação FastAPI ASGI + SSE
-├── requirements.txt                     # Dependências do projeto
-├── .env.example                         # Exemplo de variáveis de ambiente
-└── README.md                            # Esta documentação
+### 1. Cursor IDE
+
+1. Abra as configurações do Cursor (`Ctrl + Shift + J` ou ícone de engrenagem).
+2. Vá em **Features** ➔ **MCP Servers** ➔ **+ Add New MCP Server**.
+3. Preencha:
+   * **Name:** `receita-federal`
+   * **Type:** `sse`
+   * **Server URL:** `https://mcp-receita.anotae.app.br/sse`
+
+*(Ou adicione direto no seu arquivo `.cursor/mcp.json`:)*
+```json
+{
+  "mcpServers": {
+    "receita-federal": {
+      "url": "https://mcp-receita.anotae.app.br/sse"
+    }
+  }
+}
 ```
 
 ---
 
-## 🛠️ 3. Ferramentas (MCP Tools) Expostas
+### 2. Claude Desktop
 
-### 1. `search_providers_by_service`
-Busca empresas ativas através do índice Full-Text Search BM25 na descrição do CNAE principal.
-* **Argumentos:**
-  * `query` *(string, obrigatório)*: Termo ou atividade buscada (ex: `"ar condicionado"`, `"eletricista"`, `"refrigeração"`).
-  * `municipio` *(string, opcional)*: Município da RMC para filtragem (ex: `"Curitiba"`, `"São José dos Pinhais"`, `"Pinhais"`).
-  * `limit` *(integer, opcional, padrão 15, máx 100)*: Limite de registros retornados.
-* **Ordenação:** Relevância textual (`score DESC`) e experiência de mercado (`idade_anos DESC`).
+Abra seu arquivo `claude_desktop_config.json`:
+* **Linux:** `~/.config/Claude/claude_desktop_config.json`
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-### 2. `get_provider_details`
-Retorna a ficha cadastral completa de uma empresa através do CNPJ.
-* **Argumentos:**
-  * `cnpj` *(string, obrigatório)*: CNPJ formatado (`00.000.000/0000-00`) ou numérico (`00000000000000`).
-* **Retorno:** Razão social, nome fantasia, natureza jurídica, capital social, idade em anos, CNAE principal e secundários, endereço completo, telefone e e-mail.
-
-### 3. `list_available_cities`
-Lista os municípios cobertos pela base da RMC e a contagem de empresas ativas em cada localidade.
-* **Argumentos:** Nenhum.
-* **Retorno:** Lista com `municipio` e `total_empresas`.
+Adicione o servidor na chave `mcpServers`:
+```json
+{
+  "mcpServers": {
+    "receita-federal": {
+      "url": "https://mcp-receita.anotae.app.br/sse"
+    }
+  }
+}
+```
 
 ---
 
-## 🚀 4. Executando Localmente
+### 3. VS Code (Extensões Cline / Roo Code / Continue)
 
-### Pré-requisitos:
-* Python 3.10+
-* Virtualenv configurado
+No arquivo de configuração de MCP (`cline_mcp_settings.json`):
+```json
+{
+  "mcpServers": {
+    "receita-federal": {
+      "url": "https://mcp-receita.anotae.app.br/sse",
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+---
+
+### 4. LangChain & LangGraph (Python)
+
+Instale o adaptador oficial:
+```bash
+pip install langchain-mcp-adapters langgraph langchain-openai
+```
+
+Código de exemplo para conectar seu agente:
+```python
+import asyncio
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+
+async def main():
+    async with MultiServerMCPClient(
+        {
+            "receita_federal": {
+                "url": "https://mcp-receita.anotae.app.br/sse",
+                "transport": "sse",
+            }
+        }
+    ) as client:
+        # Carrega as tools dinamicamente do servidor MCP
+        tools = client.get_tools()
+        print(f"Ferramentas prontas: {[t.name for t in tools]}")
+
+        # Configura o agente
+        model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        agent = create_react_agent(model, tools)
+
+        # Consulta de exemplo
+        prompt = "Encontre 3 empresas ativas de energia solar no Rio de Janeiro e informe o CNPJ e bairro."
+        response = await agent.ainvoke({"messages": [("user", prompt)]})
+        print(response["messages"][-1].content)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+### 5. Teste Visual Interativo (MCP Inspector)
+
+Você pode inspecionar e testar as ferramentas visualmente pelo terminal sem precisar abrir um LLM:
 
 ```bash
-# 1. Clonar ou navegar até a pasta
-cd anotae-mcp-receita
+npx @modelcontextprotocol/inspector https://mcp-receita.anotae.app.br/sse
+```
+
+---
+
+## 🛠️ Ferramentas (MCP Tools) Disponíveis
+
+### 1. `search_providers_by_service`
+Busca empresas ativas utilizando índice Full-Text Search (FTS BM25) na descrição da atividade econômica principal (CNAE).
+* **Parâmetros:**
+  * `query` *(string, obrigatório)*: Atividade ou termo do serviço (ex: `"energia solar"`, `"ar condicionado"`, `"eletricista"`).
+  * `uf` *(string, opcional)*: Estado/UF para filtragem (ex: `"RJ"` ou `"PR"`).
+  * `municipio` *(string, opcional)*: Nome da cidade (ex: `"Niterói"`, `"Curitiba"`, `"Rio de Janeiro"`).
+  * `limit` *(integer, opcional, padrão 15, máx 100)*: Quantidade máxima de registros retornados.
+* **Ordenação:** Relevância textual (`score DESC`) e experiência de mercado (`idade_anos DESC`).
+
+### 2. `get_provider_details`
+Retorna a ficha cadastral completa de uma empresa ativa através do CNPJ.
+* **Parâmetros:**
+  * `cnpj` *(string, obrigatório)*: CNPJ formatado (`00.000.000/0000-00`) ou apenas numérico (`00000000000000`).
+* **Retorno:** Razão social, nome fantasia, natureza jurídica, capital social, idade em anos, CNAE principal e secundários, endereço completo, telefone e e-mail.
+
+### 3. `list_available_cities`
+Lista os municípios cobertos pela base e a contagem de empresas ativas em cada localidade.
+* **Parâmetros:**
+  * `uf` *(string, opcional)*: Filtra apenas as cidades do estado especificado (ex: `"RJ"` ou `"PR"`).
+* **Retorno:** Lista contendo `municipio`, `uf` e `total_empresas`.
+
+---
+
+## 📌 Exemplos de Prompts para o Assistente
+
+Conectado ao seu MCP, você pode fazer perguntas naturais ao assistente:
+
+* *"Encontre 5 empresas ativas de instalação de ar condicionado em Curitiba."*
+* *"Procure empresas de energia solar no Rio de Janeiro e me passe os dados cadastrais da primeira colocada."*
+* *"Quais municípios do estado do Rio de Janeiro estão disponíveis e quantas empresas cada um tem?"*
+* *"Consulte os detalhes completos da empresa de CNPJ 00.000.000/0001-00."*
+
+---
+
+## 🚀 Executando Localmente (Desenvolvimento)
+
+### Pré-requisitos
+* Python 3.10+
+* Virtualenv
+
+```bash
+# 1. Clonar o repositório
+git clone https://github.com/renatovcs/mcp-server-receita-federal.git
+cd mcp-server-receita-federal
 
 # 2. Criar e ativar o ambiente virtual
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 3. Instalar as dependências
+# 3. Instalar dependências
 pip install -r requirements.txt
 
-# 4. Iniciar o servidor FastAPI / MCP SSE
+# 4. Iniciar o servidor
 python main.py
-# ou: uvicorn main:app --host 0.0.0.0 --port 8005
 ```
 
-O servidor estará disponível em:
+Endpoints locais:
 * **Healthcheck:** `http://localhost:8005/health`
-* **MCP SSE Endpoint:** `http://localhost:8005/sse`
-* **MCP Messages Endpoint:** `http://localhost:8005/messages`
+* **MCP SSE:** `http://localhost:8005/sse`
 
 ---
 
-## 🐳 5. Executando com Docker
+## 🐳 Executando com Docker
 
 ```bash
-# Construir e iniciar o container
+# Iniciar o container
 docker compose up -d --build
 
 # Verificar logs
 docker compose logs -f
 
-# Testar o healthcheck
+# Testar healthcheck
 curl http://localhost:8005/health
 ```
 
 ---
 
-## 🧪 6. Executando os Testes
+## 🧪 Executando os Testes Automatizados
+
+A suíte valida as consultas FTS em múltiplas regiões (PR e RJ) e o tempo de resposta:
 
 ```bash
 python -m unittest tests/test_tools.py
@@ -119,36 +224,27 @@ python -m unittest tests/test_tools.py
 
 ---
 
-## 🔍 7. Reconstrução do Índice Full-Text Search (FTS)
+## 📁 Estrutura do Repositório
 
-O arquivo `data/rmc_empresas.duckdb` já se encontra indexado. Caso o arquivo de dados seja atualizado com um novo lote da Receita Federal, você pode reconstruir o índice executando:
-
-```bash
-python scripts/create_fts_index.py --db-path ./data/rmc_empresas.duckdb --rebuild
-```
-
----
-
-## 🔌 8. Como Integrar com Clientes MCP
-
-### Configuração no Claude Desktop (`claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "anotae-receita": {
-      "url": "http://localhost:8005/sse"
-    }
-  }
-}
-```
-
-### Configuração no LangGraph / LangChain Python:
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-
-async with MultiServerMCPClient(
-    {"receita": {"url": "http://localhost:8005/sse", "transport": "sse"}}
-) as client:
-    tools = client.get_tools()
-    # injetar tools no agente LangGraph
+```text
+mcp-server-receita-federal/
+├── data/
+│   ├── empresas_ativas.duckdb            # Base unificada com 2.3M de empresas e índice FTS BM25
+│   ├── empresas_ativas_rmc.parquet       # Dataset colunar Parquet (Curitiba/PR)
+│   └── empresas_ativas_rmrj.parquet      # Dataset colunar Parquet (Rio de Janeiro/RJ)
+├── scripts/
+│   ├── unificar_bases.py                 # Pipeline de consolidação e criação do índice FTS BM25
+│   └── create_fts_index.py               # Utilitário para reconstrução de índices
+├── src/
+│   ├── config.py                         # Configurações Pydantic
+│   ├── database.py                       # Conexão Singleton DuckDB (modo read_only)
+│   ├── tools.py                          # Implementação das ferramentas com Prepared Statements
+│   └── server.py                         # Instância do MCPServer e registro das rotas
+├── tests/
+│   └── test_tools.py                     # Suíte de testes unitários e integração
+├── Dockerfile                            # Imagem leve baseada em Python 3.11-slim
+├── docker-compose.yml                    # Orquestração do container
+├── main.py                               # Entrada FastAPI ASGI + SSE
+├── requirements.txt                      # Dependências do microsserviço
+└── README.md                             # Esta documentação
 ```
