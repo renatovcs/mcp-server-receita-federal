@@ -10,6 +10,7 @@ import re
 from typing import Any, Dict, List, Optional
 from src.config import settings
 from src.database import db_manager
+from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica
 
 logger = logging.getLogger("anotae_mcp.tools")
 
@@ -27,7 +28,7 @@ def search_providers_by_service(
     uf: Optional[str] = None,
     municipio: Optional[str] = None,
     limit: int = 15,
-) -> List[Dict[str, Any]]:
+) -> List[EmpresaResumo]:
     """
     Busca prestadores de serviço ativos utilizando índice Full-Text Search (FTS BM25)
     na descrição da atividade econômica principal (CNAE).
@@ -99,13 +100,13 @@ def search_providers_by_service(
         cursor = conn.execute(sql, params)
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
-        return [dict(zip(column_names, row)) for row in rows]
+        return [EmpresaResumo(**dict(zip(column_names, row))) for row in rows]
     except Exception as e:
         logger.error(f"Erro ao executar busca FTS para query='{cleaned_query}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na consulta FTS: {e}") from e
 
 
-def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
+def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
     """
     Retorna os detalhes cadastrais completos de uma empresa ativa pelo CNPJ.
 
@@ -172,13 +173,13 @@ def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
         if not row:
             return None
         column_names = [desc[0] for desc in cursor.description]
-        return dict(zip(column_names, row))
+        return EmpresaDetalhe(**dict(zip(column_names, row)))
     except Exception as e:
         logger.error(f"Erro ao buscar detalhes para CNPJ='{cleaned_cnpj}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na consulta por CNPJ: {e}") from e
 
 
-def list_available_cities(uf: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica]:
     """
     Retorna os municípios disponíveis na base com a contagem de empresas ativas.
     Pode ser filtrado opcionalmente por UF (ex: 'PR' ou 'RJ').
@@ -205,7 +206,7 @@ def list_available_cities(uf: Optional[str] = None) -> List[Dict[str, Any]]:
         cursor = conn.execute(sql, [cleaned_uf, cleaned_uf])
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
-        return [dict(zip(column_names, row)) for row in rows]
+        return [MunicipioEstatistica(**dict(zip(column_names, row))) for row in rows]
     except Exception as e:
         logger.error(f"Erro ao listar municípios disponíveis: {e}", exc_info=True)
         raise RuntimeError(f"Falha ao listar municípios: {e}") from e

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from src.config import settings
+from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica
 from src.tools import (
     get_provider_details as db_get_provider_details,
     list_available_cities as db_list_available_cities,
@@ -27,7 +28,7 @@ def search_providers_by_service(
     uf: Optional[str] = None,
     municipio: Optional[str] = None,
     limit: int = 15,
-) -> List[Dict[str, Any]]:
+) -> List[EmpresaResumo]:
     """
     Busca prestadores de serviço ativos utilizando índice Full-Text Search (FTS BM25) na descrição do CNAE principal.
 
@@ -41,7 +42,7 @@ def search_providers_by_service(
 
 
 @mcp_server.tool()
-def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
+def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
     """
     Consulta a ficha cadastral completa de uma empresa ativa através do seu CNPJ.
 
@@ -52,7 +53,7 @@ def get_provider_details(cnpj: str) -> Optional[Dict[str, Any]]:
 
 
 @mcp_server.tool()
-def list_available_cities(uf: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica]:
     """
     Lista todos os municípios cobertos na base de dados com a quantidade total de empresas ativas em cada um.
 
