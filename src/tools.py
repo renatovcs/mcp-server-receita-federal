@@ -5,14 +5,14 @@ Busca textual otimizada via DuckDB Full-Text Search (FTS BM25).
 Suporta busca em todas as regiões cadastradas (Paraná, Rio de Janeiro e futuras expansões).
 """
 
-import logging
 import re
 from typing import Any, Dict, List, Optional
+import structlog
 from src.config import settings
 from src.database import db_manager
 from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica
 
-logger = logging.getLogger("anotae_mcp.tools")
+logger = structlog.get_logger("anotae_mcp.tools")
 
 
 def _get_active_table_and_fts_func(conn) -> tuple[str, str]:

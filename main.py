@@ -15,14 +15,21 @@ from src.config import settings
 from src.database import db_manager
 from src.server import mcp_server
 from mcp.server.transport_security import TransportSecuritySettings
+import structlog
+from prometheus_fastapi_instrumentator import Instrumentator
 
-# Configuração de Logs Estruturados
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+# Configuração de Logs Estruturados em JSON
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
 )
-logger = logging.getLogger("anotae_mcp.main")
+logging.basicConfig(format="%(message)s", level=logging.INFO)
+logger = structlog.get_logger("anotae_mcp.main")
 
 
 @asynccontextmanager
@@ -53,6 +60,9 @@ app = FastAPI(
     description="Servidor MCP público para busca analítica de prestadores e empresas ativas da Receita Federal na RMC.",
     lifespan=lifespan,
 )
+
+# Instrumentação do Prometheus (Métricas)
+Instrumentator().instrument(app).expose(app)
 
 
 @app.middleware("http")

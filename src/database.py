@@ -3,12 +3,12 @@ Gerenciamento de conexão Singleton com DuckDB.
 Garante conexão global única, modo estritamente read_only=True e ciclo de vida controlado via lifespan.
 """
 
-import logging
 from pathlib import Path
 from typing import Optional
 import duckdb
+import structlog
 
-logger = logging.getLogger("anotae_mcp.database")
+logger = structlog.get_logger("anotae_mcp.database")
 
 
 class DuckDBManager:

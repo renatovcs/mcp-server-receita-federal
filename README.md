@@ -16,6 +16,10 @@ Permite que agentes de Inteligência Artificial (LangGraph, assistentes LLM, Cur
   ```text
   https://mcp-receita.anotae.app.br/health
   ```
+* **Métricas Prometheus:**
+  ```text
+  https://mcp-receita.anotae.app.br/metrics
+  ```
 * **Cobertura Atual:** **+2.328.000 empresas ativas**
   * **Rio de Janeiro (RJ):** ~1.571.000 empresas ativas
   * **Paraná (PR):** ~756.000 empresas ativas
