@@ -26,6 +26,20 @@ Permite que agentes de Inteligência Artificial (LangGraph, assistentes LLM, Cur
 
 ---
 
+## 🌟 Arquitetura e Recursos de Produção
+
+Este projeto foi construído seguindo as melhores práticas de Engenharia de Software e está pronto para ambientes de nível Enterprise:
+
+1. **Tipagem Forte e Pydantic:** Todas as ferramentas retornam modelos de dados rigorosos (Pydantic BaseModel), que geram automaticamente um JSON Schema completo. Isso impede que Agentes LLM "alucinem" propriedades inexistentes.
+2. **Segurança (API Key / Token):** O acesso MCP é bloqueado por padrão, exigindo uma chave de autenticação passada via Query Parameter (`?token=...`) ou HTTP Headers (`X-API-Key` / `Authorization`).
+3. **Observabilidade e Métricas (APM):** 
+   - Os logs da aplicação são exportados em formato **JSON estruturado** usando a biblioteca `structlog`, prontos para Datadog ou AWS CloudWatch.
+   - Um endpoint `/metrics` expõe a saúde em tempo real do sistema para o **Prometheus** e **Grafana**.
+4. **Cache em Memória (RAM):** Consultas recentes, detalhes de CNPJs frequentes e agregados por município são armazenados em memória (via `cachetools`), respondendo em ~1 milissegundo e economizando recursos de CPU do DuckDB.
+5. **Automação de Deploy (CI/CD):** Integração e Entrega Contínuas já configuradas via **GitHub Actions**. Atualizações sobem para o servidor Oracle sem toque manual.
+
+---
+
 ## 🔌 Como Conectar ao MCP Server
 
 ### 1. Cursor IDE
