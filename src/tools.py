@@ -12,7 +12,7 @@ from cachetools import cached, TTLCache
 
 from src.config import settings
 from src.database import db_manager
-from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica, AnaliseMercado, BairroEstatistica
+from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica, AnaliseMercado, BairroEstatistica, EmpresaCapital
 
 logger = structlog.get_logger("anotae_mcp.tools")
 
@@ -31,6 +31,8 @@ search_cache = TTLCache(maxsize=1024, ttl=3600)    # 1024 buscas por 1 hora
 details_cache = TTLCache(maxsize=2048, ttl=3600)   # 2048 CNPJs por 1 hora
 cities_cache = TTLCache(maxsize=10, ttl=86400)     # Cidades por 24 horas (quase estático)
 market_cache = TTLCache(maxsize=512, ttl=3600)     # 512 análises de mercado por 1 hora
+capital_cache = TTLCache(maxsize=512, ttl=3600)    # 512 buscas por capital
+
 
 @cached(cache=search_cache)
 def search_providers_by_service(
@@ -319,4 +321,66 @@ def analyze_market_competition(
     except Exception as e:
         logger.error(f"Erro ao analisar concorrência de mercado para query='{cleaned_query}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na análise de mercado: {e}") from e
+
+@cached(cache=capital_cache)
+def get_biggest_companies_by_capital(
+    query: str,
+    uf: Optional[str] = None,
+    municipio: Optional[str] = None,
+    limit: int = 5,
+) -> List[EmpresaCapital]:
+    """
+    Busca as maiores empresas (por capital social declarado) em um segmento específico.
+    """
+    cleaned_query = query.strip()
+    if not cleaned_query:
+        return []
+
+    safe_limit = max(1, min(limit, settings.MAX_SEARCH_LIMIT))
+    cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
+    cleaned_municipio = municipio.strip() if municipio and municipio.strip() else None
+
+    conn = db_manager.get_connection()
+    table_name, fts_func = _get_active_table_and_fts_func(conn)
+
+    sql = f"""
+        SELECT 
+            cnpj,
+            razao_social,
+            COALESCE(capital_social, 0.0) as capital_social,
+            municipio,
+            uf,
+            COALESCE(idade_anos, 0.0) as idade_anos,
+            descricao_cnae_principal,
+            porte_empresa
+        FROM (
+            SELECT 
+                *,
+                {fts_func}(cnpj, ?) AS score
+            FROM {table_name}
+        ) sq
+        WHERE score IS NOT NULL
+          AND (? IS NULL OR UPPER(uf) = UPPER(?))
+          AND (? IS NULL OR LOWER(municipio) = LOWER(?))
+        ORDER BY capital_social DESC
+        LIMIT ?;
+    """
+
+    params = [
+        cleaned_query,
+        cleaned_uf,
+        cleaned_uf,
+        cleaned_municipio,
+        cleaned_municipio,
+        safe_limit,
+    ]
+
+    try:
+        cursor = conn.execute(sql, params)
+        column_names = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+        return [EmpresaCapital(**dict(zip(column_names, row))) for row in rows]
+    except Exception as e:
+        logger.error(f"Erro ao buscar maiores empresas para query='{cleaned_query}': {e}", exc_info=True)
+        raise RuntimeError(f"Falha na busca por capital: {e}") from e
 

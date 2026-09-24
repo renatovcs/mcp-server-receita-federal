@@ -8,12 +8,13 @@ from typing import Any, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from src.config import settings
-from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica, AnaliseMercado
+from src.models import EmpresaResumo, EmpresaDetalhe, MunicipioEstatistica, AnaliseMercado, EmpresaCapital
 from src.tools import (
     get_provider_details as db_get_provider_details,
     list_available_cities as db_list_available_cities,
     search_providers_by_service as db_search_providers_by_service,
     analyze_market_competition as db_analyze_market_competition,
+    get_biggest_companies_by_capital as db_get_biggest_companies_by_capital,
 )
 
 # Cria a instância do servidor MCP com metadados do serviço
@@ -79,3 +80,22 @@ def analyze_market_competition(
         municipio: (Opcional) Nome da cidade para focar a análise (ex: 'Curitiba', 'Rio de Janeiro').
     """
     return db_analyze_market_competition(query=query, uf=uf, municipio=municipio)
+
+@mcp_server.tool()
+def get_biggest_companies_by_capital(
+    query: str,
+    uf: Optional[str] = None,
+    municipio: Optional[str] = None,
+    limit: int = 5,
+) -> List[EmpresaCapital]:
+    """
+    Busca as maiores empresas de um determinado segmento de mercado (query) ordenadas pelo Capital Social declarado na Receita Federal.
+    Utilidade: Encontrar líderes de mercado, empresas de grande porte ou grandes fornecedores B2B.
+
+    Args:
+        query: Termo de busca do serviço ou produto (ex: 'construtora', 'tecnologia', 'transporte').
+        uf: (Opcional) Estado para focar a busca (ex: 'PR' ou 'RJ').
+        municipio: (Opcional) Nome da cidade para focar a busca (ex: 'Curitiba').
+        limit: Quantidade máxima de resultados (padrão 5, máx 100).
+    """
+    return db_get_biggest_companies_by_capital(query=query, uf=uf, municipio=municipio, limit=limit)

@@ -76,3 +76,14 @@ class MunicipioEstatistica(BaseModel):
     municipio: str = Field(..., description="Nome do município")
     uf: str = Field(..., description="Unidade Federativa / Estado")
     total_empresas: int = Field(..., description="Quantidade total de empresas ativas")
+
+class EmpresaCapital(BaseModel):
+    """Resumo de empresa focada em porte econômico (Capital Social)."""
+    cnpj: str = Field(..., description="CNPJ da empresa")
+    razao_social: str = Field(..., description="Razão social oficial")
+    capital_social: float = Field(..., description="Capital social registrado")
+    municipio: str = Field(..., description="Município sede")
+    uf: str = Field(..., description="Estado sede")
+    idade_anos: float = Field(..., description="Idade da empresa")
+    descricao_cnae_principal: Optional[str] = Field(None, description="Atividade principal")
+    porte_empresa: Optional[str] = Field(None, description="Porte (ME, EPP, etc)")

@@ -190,6 +190,15 @@ Executa uma análise de inteligência de mercado agregando dados reais sobre um 
   * `municipio` *(string, opcional)*: Foca a análise em um município (ex: `"Curitiba"`).
 * **Retorno:** Relatório detalhado com o total de empresas concorrentes, média de capital social no setor, média de tempo de mercado (idade das empresas) e os 5 bairros com maior concentração deste serviço.
 
+### 5. `get_biggest_companies_by_capital`
+Busca os líderes de mercado e empresas de grande porte em um segmento, ordenadas pelo Capital Social.
+* **Parâmetros:**
+  * `query` *(string, obrigatório)*: Segmento ou nicho (ex: `"energia solar"`, `"tecnologia"`).
+  * `uf` *(string, opcional)*: Filtrar por Estado.
+  * `municipio` *(string, opcional)*: Filtrar por Município.
+  * `limit` *(integer, opcional, padrão 5)*: Quantidade de empresas a retornar.
+* **Retorno:** Lista de empresas (CNPJ, Razão Social, Capital Social, Idade, etc.) ordenadas do maior capital para o menor.
+
 ---
 
 ## 📌 Exemplos de Prompts para o Assistente
