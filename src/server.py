@@ -30,7 +30,9 @@ def search_providers_by_service(
     query: str,
     uf: Optional[str] = None,
     municipio: Optional[str] = None,
+    bairro: Optional[str] = None,
     limit: int = 15,
+    offset: int = 0,
 ) -> List[EmpresaResumo]:
     """
     Busca prestadores de serviço ativos utilizando índice Full-Text Search (FTS BM25) na descrição do CNAE principal.
@@ -39,9 +41,13 @@ def search_providers_by_service(
         query: Termo de busca (ex: 'ar condicionado', 'refrigeração', 'eletricista', 'pintor', 'energia solar').
         uf: (Opcional) Estado para filtrar os resultados (ex: 'PR' ou 'RJ').
         municipio: (Opcional) Nome da cidade para filtrar os resultados (ex: 'Curitiba', 'Rio de Janeiro', 'Niterói').
+        bairro: (Opcional) Nome do bairro ou região (ex: 'Batel', 'Centro', 'Barra da Tijuca').
         limit: Quantidade máxima de registros a retornar (padrão 15, máx 100).
+        offset: Deslocamento para paginação de resultados (padrão 0).
     """
-    return db_search_providers_by_service(query=query, uf=uf, municipio=municipio, limit=limit)
+    return db_search_providers_by_service(
+        query=query, uf=uf, municipio=municipio, bairro=bairro, limit=limit, offset=offset
+    )
 
 
 @mcp_server.tool()
@@ -88,6 +94,7 @@ def get_biggest_companies_by_capital(
     uf: Optional[str] = None,
     municipio: Optional[str] = None,
     limit: int = 5,
+    offset: int = 0,
 ) -> List[EmpresaCapital]:
     """
     Busca as maiores empresas de um determinado segmento de mercado (query) ordenadas pelo Capital Social declarado na Receita Federal.
@@ -98,14 +105,19 @@ def get_biggest_companies_by_capital(
         uf: (Opcional) Estado para focar a busca (ex: 'PR' ou 'RJ').
         municipio: (Opcional) Nome da cidade para focar a busca (ex: 'Curitiba').
         limit: Quantidade máxima de resultados (padrão 5, máx 100).
+        offset: Deslocamento para paginação (padrão 0).
     """
-    return db_get_biggest_companies_by_capital(query=query, uf=uf, municipio=municipio, limit=limit)
+    return db_get_biggest_companies_by_capital(
+        query=query, uf=uf, municipio=municipio, limit=limit, offset=offset
+    )
 
 @mcp_server.tool()
 def search_company_by_name(
     name: str,
     uf: Optional[str] = None,
+    municipio: Optional[str] = None,
     limit: int = 15,
+    offset: int = 0,
 ) -> List[EmpresaResumo]:
     """
     Busca uma empresa ativa diretamente pelo seu NOME (Razão Social ou Nome Fantasia).
@@ -114,6 +126,10 @@ def search_company_by_name(
     Args:
         name: O nome da empresa (ex: 'Oficina do João', 'Tech Solutions LTDA').
         uf: (Opcional) Limitar a busca a um Estado (ex: 'PR', 'RJ').
+        municipio: (Opcional) Limitar a busca a um Município (ex: 'Curitiba', 'Rio de Janeiro').
         limit: Quantidade máxima de resultados (padrão 15).
+        offset: Deslocamento para paginação (padrão 0).
     """
-    return db_search_company_by_name(name=name, uf=uf, limit=limit)
+    return db_search_company_by_name(
+        name=name, uf=uf, municipio=municipio, limit=limit, offset=offset
+    )

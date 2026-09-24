@@ -32,11 +32,13 @@ Este projeto foi construído seguindo as melhores práticas de Engenharia de Sof
 
 1. **Tipagem Forte e Pydantic:** Todas as ferramentas retornam modelos de dados rigorosos (Pydantic BaseModel), que geram automaticamente um JSON Schema completo. Isso impede que Agentes LLM "alucinem" propriedades inexistentes.
 2. **Segurança (API Key / Token):** O acesso MCP é bloqueado por padrão, exigindo uma chave de autenticação passada via Query Parameter (`?token=...`) ou HTTP Headers (`X-API-Key` / `Authorization`).
-3. **Observabilidade e Métricas (APM):** 
+3. **Proteção Operacional de Memória e CPU:** Conexão DuckDB configurada defensivamente com pragmas de contenção de recursos (`memory_limit` e `threads`), além de isolamento de cursores por request, impedindo travamentos ou OOM na VM de produção.
+4. **Paginação e Busca Hiperlocal:** Ferramentas preparadas para navegação contínua de agentes de IA através do parâmetro `offset`, com filtros adicionais por `bairro` e `município`.
+5. **Observabilidade e Métricas (APM):** 
    - Os logs da aplicação são exportados em formato **JSON estruturado** usando a biblioteca `structlog`, prontos para Datadog ou AWS CloudWatch.
    - Um endpoint `/metrics` expõe a saúde em tempo real do sistema para o **Prometheus** e **Grafana**.
-4. **Cache em Memória (RAM):** Consultas recentes, detalhes de CNPJs frequentes e agregados por município são armazenados em memória (via `cachetools`), respondendo em ~1 milissegundo e economizando recursos de CPU do DuckDB.
-5. **Automação de Deploy (CI/CD):** Integração e Entrega Contínuas já configuradas via **GitHub Actions**. Atualizações sobem para o servidor Oracle sem toque manual.
+6. **Cache em Memória (RAM):** Consultas recentes, detalhes de CNPJs frequentes e agregados por município são armazenados em memória (via `cachetools`), respondendo em ~1 milissegundo e economizando recursos de CPU do DuckDB.
+7. **CI/CD com Gate de Testes Automatizados:** Pipeline no **GitHub Actions** que executa toda a suíte de testes unitários e de integração antes de autorizar o deploy na Oracle VM via SSH.
 
 ---
 
@@ -167,7 +169,9 @@ Busca empresas ativas utilizando índice Full-Text Search (FTS BM25) na descriç
   * `query` *(string, obrigatório)*: Atividade ou termo do serviço (ex: `"energia solar"`, `"ar condicionado"`, `"eletricista"`).
   * `uf` *(string, opcional)*: Estado/UF para filtragem (ex: `"RJ"` ou `"PR"`).
   * `municipio` *(string, opcional)*: Nome da cidade (ex: `"Niterói"`, `"Curitiba"`, `"Rio de Janeiro"`).
+  * `bairro` *(string, opcional)*: Nome do bairro ou região (ex: `"Batel"`, `"Centro"`, `"Barra da Tijuca"`).
   * `limit` *(integer, opcional, padrão 15, máx 100)*: Quantidade máxima de registros retornados.
+  * `offset` *(integer, opcional, padrão 0)*: Deslocamento para paginação de resultados.
 * **Ordenação:** Relevância textual (`score DESC`) e experiência de mercado (`idade_anos DESC`).
 
 ### 2. `get_provider_details`
@@ -197,6 +201,7 @@ Busca os líderes de mercado e empresas de grande porte em um segmento, ordenada
   * `uf` *(string, opcional)*: Filtrar por Estado.
   * `municipio` *(string, opcional)*: Filtrar por Município.
   * `limit` *(integer, opcional, padrão 5)*: Quantidade de empresas a retornar.
+  * `offset` *(integer, opcional, padrão 0)*: Deslocamento para paginação do ranking.
 * **Retorno:** Lista de empresas (CNPJ, Razão Social, Capital Social, Idade, etc.) ordenadas do maior capital para o menor.
 
 ### 6. `search_company_by_name`
@@ -204,7 +209,9 @@ Busca uma empresa ativa diretamente pelo seu nome exato ou parte dele (Razão So
 * **Parâmetros:**
   * `name` *(string, obrigatório)*: Nome da empresa (ex: `"Oficina do João"`, `"Tech Solutions LTDA"`).
   * `uf` *(string, opcional)*: Limitar a busca a um Estado (ex: `"PR"` ou `"RJ"`).
+  * `municipio` *(string, opcional)*: Limitar a busca a um Município (ex: `"Curitiba"`, `"Rio de Janeiro"`).
   * `limit` *(integer, opcional, padrão 15)*: Quantidade de empresas a retornar.
+  * `offset` *(integer, opcional, padrão 0)*: Deslocamento para paginação.
 * **Retorno:** Lista de empresas correspondentes.
 
 ---

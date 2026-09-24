@@ -12,6 +12,13 @@ services:
       - PORT=8005
       - DUCKDB_PATH=/app/data/empresas_ativas.duckdb
       - API_KEY=${API_KEY:-anotae-receita-dev-key-123}
+      - DUCKDB_MEMORY_LIMIT=${DUCKDB_MEMORY_LIMIT:-2GB}
+      - DUCKDB_THREADS=${DUCKDB_THREADS:-2}
     volumes:
       # Monta o banco DuckDB e Parquet em modo somente leitura (read-only)
       - ./data:/app/data:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"

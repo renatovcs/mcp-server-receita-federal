@@ -8,6 +8,8 @@ from typing import Optional
 import duckdb
 import structlog
 
+from src.config import settings
+
 logger = structlog.get_logger("anotae_mcp.database")
 
 
@@ -44,6 +46,17 @@ class DuckDBManager:
 
         try:
             self._connection = duckdb.connect(database=str(db_path), read_only=True)
+            
+            # Configuração defensiva de limites de recursos para garantir estabilidade e evitar OOM
+            try:
+                self._connection.execute(f"SET memory_limit = '{settings.DUCKDB_MEMORY_LIMIT}';")
+                self._connection.execute(f"SET threads = {settings.DUCKDB_THREADS};")
+                logger.info(
+                    f"Limites operacionais DuckDB configurados: memory_limit={settings.DUCKDB_MEMORY_LIMIT}, threads={settings.DUCKDB_THREADS}"
+                )
+            except Exception as e:
+                logger.warning(f"Aviso ao aplicar pragmas de recursos DuckDB: {e}")
+
             # Carrega extensão FTS para habilitar consultas BM25 indexadas
             try:
                 self._connection.execute("LOAD fts;")
@@ -87,6 +100,14 @@ class DuckDBManager:
     @property
     def total_empresas(self) -> int:
         return self._total_empresas
+
+    @property
+    def memory_limit(self) -> str:
+        return settings.DUCKDB_MEMORY_LIMIT
+
+    @property
+    def threads(self) -> int:
+        return settings.DUCKDB_THREADS
 
     @property
     def is_connected(self) -> bool:

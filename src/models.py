@@ -3,7 +3,7 @@ Modelos Pydantic para padronização de retorno e geração automática
 de esquemas JSON para o Model Context Protocol (MCP).
 """
 
-from typing import Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 
 class EmpresaResumo(BaseModel):
@@ -33,7 +33,7 @@ class EmpresaDetalhe(BaseModel):
     cnpj_basico: Optional[str] = None
     razao_social: str = Field(..., description="Razão social oficial")
     nome_fantasia: Optional[str] = Field(None, description="Nome fantasia, se disponível")
-    matriz_filial: Optional[int] = Field(None, description="1 para Matriz, 2 para Filial")
+    matriz_filial: Optional[Union[str, int]] = Field(None, description="1/Matriz ou 2/Filial")
     porte_empresa: Optional[str] = None
     capital_social: Optional[float] = Field(None, description="Capital social da empresa")
     codigo_natureza_juridica: Optional[str] = None
@@ -87,3 +87,6 @@ class EmpresaCapital(BaseModel):
     idade_anos: float = Field(..., description="Idade da empresa")
     descricao_cnae_principal: Optional[str] = Field(None, description="Atividade principal")
     porte_empresa: Optional[str] = Field(None, description="Porte (ME, EPP, etc)")
+
+
+AnaliseMercado.model_rebuild()

@@ -109,6 +109,8 @@ async def health_check() -> JSONResponse:
                 "engine": "DuckDB",
                 "connected": is_connected,
                 "read_only": True,
+                "memory_limit": db_manager.memory_limit,
+                "threads": db_manager.threads,
                 "total_empresas_ativas": db_manager.total_empresas,
                 "path": str(settings.DUCKDB_PATH),
             },

@@ -39,7 +39,9 @@ def search_providers_by_service(
     query: str,
     uf: Optional[str] = None,
     municipio: Optional[str] = None,
+    bairro: Optional[str] = None,
     limit: int = 15,
+    offset: int = 0,
 ) -> List[EmpresaResumo]:
     """
     Busca prestadores de serviço ativos utilizando índice Full-Text Search (FTS BM25)
@@ -49,7 +51,9 @@ def search_providers_by_service(
         query: Termo ou expressão do serviço (ex: 'ar condicionado', 'eletricista', 'energia solar').
         uf: Filtro opcional por Unidade Federativa / Estado (ex: 'PR', 'RJ').
         municipio: Filtro opcional por município (ex: 'Curitiba', 'Rio de Janeiro', 'Niterói').
+        bairro: Filtro opcional por bairro ou região (ex: 'Batel', 'Centro', 'Barra da Tijuca').
         limit: Quantidade máxima de resultados (padrão 15, máximo 100).
+        offset: Deslocamento para paginação de resultados (padrão 0).
 
     Returns:
         Lista de empresas ordenadas por relevância FTS e tempo de mercado.
@@ -60,8 +64,10 @@ def search_providers_by_service(
 
     # Sanitização defensiva de parâmetros
     safe_limit = max(1, min(limit, settings.MAX_SEARCH_LIMIT))
+    safe_offset = max(0, offset)
     cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
     cleaned_municipio = municipio.strip() if municipio and municipio.strip() else None
+    cleaned_bairro = f"%{bairro.strip().lower()}%" if bairro and bairro.strip() else None
 
     conn = db_manager.get_connection()
     table_name, fts_func = _get_active_table_and_fts_func(conn)
@@ -95,8 +101,9 @@ def search_providers_by_service(
         WHERE score IS NOT NULL
           AND (? IS NULL OR UPPER(uf) = UPPER(?))
           AND (? IS NULL OR LOWER(municipio) = LOWER(?))
+          AND (? IS NULL OR LOWER(bairro) LIKE ?)
         ORDER BY score DESC, idade_anos DESC
-        LIMIT ?;
+        LIMIT ? OFFSET ?;
     """
 
     params = [
@@ -105,17 +112,23 @@ def search_providers_by_service(
         cleaned_uf,
         cleaned_municipio,
         cleaned_municipio,
+        cleaned_bairro,
+        cleaned_bairro,
         safe_limit,
+        safe_offset,
     ]
 
+    cursor = conn.cursor()
     try:
-        cursor = conn.execute(sql, params)
+        cursor.execute(sql, params)
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
         return [EmpresaResumo(**dict(zip(column_names, row))) for row in rows]
     except Exception as e:
         logger.error(f"Erro ao executar busca FTS para query='{cleaned_query}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na consulta FTS: {e}") from e
+    finally:
+        cursor.close()
 
 
 @cached(cache=details_cache)
@@ -180,8 +193,9 @@ def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
 
     params = [cleaned_cnpj, masked_cnpj]
 
+    cursor = conn.cursor()
     try:
-        cursor = conn.execute(sql, params)
+        cursor.execute(sql, params)
         row = cursor.fetchone()
         if not row:
             return None
@@ -190,6 +204,8 @@ def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
     except Exception as e:
         logger.error(f"Erro ao buscar detalhes para CNPJ='{cleaned_cnpj}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na consulta por CNPJ: {e}") from e
+    finally:
+        cursor.close()
 
 
 @cached(cache=cities_cache)
@@ -216,14 +232,17 @@ def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica
         ORDER BY total_empresas DESC;
     """
 
+    cursor = conn.cursor()
     try:
-        cursor = conn.execute(sql, [cleaned_uf, cleaned_uf])
+        cursor.execute(sql, [cleaned_uf, cleaned_uf])
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
         return [MunicipioEstatistica(**dict(zip(column_names, row))) for row in rows]
     except Exception as e:
         logger.error(f"Erro ao listar municípios disponíveis: {e}", exc_info=True)
         raise RuntimeError(f"Falha ao listar municípios: {e}") from e
+    finally:
+        cursor.close()
 
 @cached(cache=market_cache)
 def analyze_market_competition(
@@ -289,8 +308,9 @@ def analyze_market_competition(
         cleaned_municipio,
     ]
 
+    cursor = conn.cursor()
     try:
-        cursor = conn.execute(sql_stats, params)
+        cursor.execute(sql_stats, params)
         row = cursor.fetchone()
         
         if not row or row[0] == 0:
@@ -300,8 +320,8 @@ def analyze_market_competition(
         media_capital = round(float(row[1]), 2)
         media_idade = round(float(row[2]), 1)
         
-        cursor_bairros = conn.execute(sql_bairros, params)
-        bairros_rows = cursor_bairros.fetchall()
+        cursor.execute(sql_bairros, params)
+        bairros_rows = cursor.fetchall()
         
         top_bairros = [
             BairroEstatistica(bairro=b[0], quantidade=int(b[1])) 
@@ -321,6 +341,8 @@ def analyze_market_competition(
     except Exception as e:
         logger.error(f"Erro ao analisar concorrência de mercado para query='{cleaned_query}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na análise de mercado: {e}") from e
+    finally:
+        cursor.close()
 
 @cached(cache=capital_cache)
 def get_biggest_companies_by_capital(
@@ -328,6 +350,7 @@ def get_biggest_companies_by_capital(
     uf: Optional[str] = None,
     municipio: Optional[str] = None,
     limit: int = 5,
+    offset: int = 0,
 ) -> List[EmpresaCapital]:
     """
     Busca as maiores empresas (por capital social declarado) em um segmento específico.
@@ -337,6 +360,7 @@ def get_biggest_companies_by_capital(
         return []
 
     safe_limit = max(1, min(limit, settings.MAX_SEARCH_LIMIT))
+    safe_offset = max(0, offset)
     cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
     cleaned_municipio = municipio.strip() if municipio and municipio.strip() else None
 
@@ -363,7 +387,7 @@ def get_biggest_companies_by_capital(
           AND (? IS NULL OR UPPER(uf) = UPPER(?))
           AND (? IS NULL OR LOWER(municipio) = LOWER(?))
         ORDER BY capital_social DESC
-        LIMIT ?;
+        LIMIT ? OFFSET ?;
     """
 
     params = [
@@ -373,22 +397,28 @@ def get_biggest_companies_by_capital(
         cleaned_municipio,
         cleaned_municipio,
         safe_limit,
+        safe_offset,
     ]
 
+    cursor = conn.cursor()
     try:
-        cursor = conn.execute(sql, params)
+        cursor.execute(sql, params)
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
         return [EmpresaCapital(**dict(zip(column_names, row))) for row in rows]
     except Exception as e:
         logger.error(f"Erro ao buscar maiores empresas para query='{cleaned_query}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na busca por capital: {e}") from e
+    finally:
+        cursor.close()
 
 @cached(cache=name_cache)
 def search_company_by_name(
     name: str,
     uf: Optional[str] = None,
+    municipio: Optional[str] = None,
     limit: int = 15,
+    offset: int = 0,
 ) -> List[EmpresaResumo]:
     """
     Busca empresas diretamente pela Razão Social ou Nome Fantasia.
@@ -398,7 +428,9 @@ def search_company_by_name(
         return []
 
     safe_limit = max(1, min(limit, settings.MAX_SEARCH_LIMIT))
+    safe_offset = max(0, offset)
     cleaned_uf = uf.strip().upper() if uf and uf.strip() else None
+    cleaned_municipio = municipio.strip() if municipio and municipio.strip() else None
 
     conn = db_manager.get_connection()
     table_name, _ = _get_active_table_and_fts_func(conn)
@@ -417,8 +449,9 @@ def search_company_by_name(
         WHERE 
             (razao_social ILIKE ? OR nome_fantasia ILIKE ?)
             AND (? IS NULL OR UPPER(uf) = UPPER(?))
+            AND (? IS NULL OR LOWER(municipio) = LOWER(?))
         ORDER BY idade_anos DESC
-        LIMIT ?;
+        LIMIT ? OFFSET ?;
     """
 
     search_pattern = f"%{cleaned_name}%"
@@ -427,15 +460,21 @@ def search_company_by_name(
         search_pattern,
         cleaned_uf,
         cleaned_uf,
+        cleaned_municipio,
+        cleaned_municipio,
         safe_limit,
+        safe_offset,
     ]
 
+    cursor = conn.cursor()
     try:
-        cursor = conn.execute(sql, params)
+        cursor.execute(sql, params)
         column_names = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
         return [EmpresaResumo(**dict(zip(column_names, row))) for row in rows]
     except Exception as e:
         logger.error(f"Erro na busca nominal por '{cleaned_name}': {e}", exc_info=True)
         raise RuntimeError(f"Falha na busca nominal: {e}") from e
+    finally:
+        cursor.close()
 

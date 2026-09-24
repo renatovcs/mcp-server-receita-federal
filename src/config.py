@@ -29,5 +29,9 @@ class Settings(BaseModel):
     DEFAULT_SEARCH_LIMIT: int = 15
     MAX_SEARCH_LIMIT: int = 100
 
+    # Limites operacionais de recursos para DuckDB (proteção de OOM e concorrência)
+    DUCKDB_MEMORY_LIMIT: str = Field(default_factory=lambda: os.getenv("DUCKDB_MEMORY_LIMIT", "2GB"))
+    DUCKDB_THREADS: int = Field(default_factory=lambda: int(os.getenv("DUCKDB_THREADS", "2")))
+
 
 settings = Settings()
