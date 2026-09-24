@@ -10,7 +10,7 @@ Permite que agentes de Inteligência Artificial (LangGraph, assistentes LLM, Cur
 
 * **MCP SSE Endpoint (para clientes e agentes):**
   ```text
-  https://mcp-receita.anotae.app.br/sse
+  https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123
   ```
 * **Status / Healthcheck (JSON via navegador ou curl):**
   ```text
@@ -31,14 +31,14 @@ Permite que agentes de Inteligência Artificial (LangGraph, assistentes LLM, Cur
 3. Preencha:
    * **Name:** `receita-federal`
    * **Type:** `sse`
-   * **Server URL:** `https://mcp-receita.anotae.app.br/sse`
+   * **Server URL:** `https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123`
 
 *(Ou adicione direto no seu arquivo `.cursor/mcp.json`:)*
 ```json
 {
   "mcpServers": {
     "receita-federal": {
-      "url": "https://mcp-receita.anotae.app.br/sse"
+      "url": "https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123"
     }
   }
 }
@@ -58,7 +58,10 @@ Adicione o servidor na chave `mcpServers`:
 {
   "mcpServers": {
     "receita-federal": {
-      "url": "https://mcp-receita.anotae.app.br/sse"
+      "url": "https://mcp-receita.anotae.app.br/sse",
+      "env": {
+        "AUTHORIZATION": "Bearer anotae-receita-dev-key-123"
+      }
     }
   }
 }
@@ -73,7 +76,7 @@ No arquivo de configuração de MCP (`cline_mcp_settings.json`):
 {
   "mcpServers": {
     "receita-federal": {
-      "url": "https://mcp-receita.anotae.app.br/sse",
+      "url": "https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123",
       "disabled": false,
       "autoApprove": []
     }
@@ -103,6 +106,9 @@ async def main():
             "receita_federal": {
                 "url": "https://mcp-receita.anotae.app.br/sse",
                 "transport": "sse",
+                "headers": {
+                    "X-API-Key": "anotae-receita-dev-key-123"
+                }
             }
         }
     ) as client:
@@ -130,7 +136,7 @@ if __name__ == "__main__":
 Você pode inspecionar e testar as ferramentas visualmente pelo terminal sem precisar abrir um LLM:
 
 ```bash
-npx @modelcontextprotocol/inspector https://mcp-receita.anotae.app.br/sse
+npx @modelcontextprotocol/inspector "https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123"
 ```
 
 ---

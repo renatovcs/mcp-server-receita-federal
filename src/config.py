@@ -13,6 +13,7 @@ class Settings(BaseModel):
     SERVICE_VERSION: str = "0.1.0"
     HOST: str = Field(default_factory=lambda: os.getenv("HOST", "0.0.0.0"))
     PORT: int = Field(default_factory=lambda: int(os.getenv("PORT", "8005")))
+    API_KEY: str = Field(default_factory=lambda: os.getenv("API_KEY", "anotae-receita-dev-key-123"))
     
     # Caminho do banco DuckDB
     DUCKDB_PATH: Path = Field(

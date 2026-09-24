@@ -6,9 +6,10 @@ Servidor ASGI FastAPI com transporte MCP SSE (Server-Sent Events) e conexão Duc
 from contextlib import asynccontextmanager
 import logging
 from typing import AsyncGenerator
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import uvicorn
+import secrets
 
 from src.config import settings
 from src.database import db_manager
@@ -52,6 +53,32 @@ app = FastAPI(
     description="Servidor MCP público para busca analítica de prestadores e empresas ativas da Receita Federal na RMC.",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def verify_api_key(request: Request, call_next):
+    """
+    Middleware de segurança para validar a API Key via Query Param (token), header X-API-Key ou header Authorization.
+    A rota /health fica isenta de autenticação.
+    """
+    if request.url.path == "/health" or request.method == "OPTIONS":
+        return await call_next(request)
+    
+    token = request.query_params.get("token")
+    if not token:
+        token = request.headers.get("X-API-Key")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            
+    if not token or not secrets.compare_digest(token, settings.API_KEY):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized. Invalid or missing API Key (token)."},
+        )
+        
+    return await call_next(request)
 
 
 @app.get("/health", tags=["Monitoramento"])
