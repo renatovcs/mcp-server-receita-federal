@@ -45,7 +45,10 @@ class DuckDBManager:
         try:
             self._connection = duckdb.connect(database=str(db_path), read_only=True)
             # Carrega extensão FTS para habilitar consultas BM25 indexadas
-            self._connection.execute("LOAD fts;")
+            try:
+                self._connection.execute("LOAD fts;")
+            except Exception:
+                self._connection.execute("INSTALL fts; LOAD fts;")
             
             # Obtém contagem total para métricas do healthcheck
             res = self._connection.execute(

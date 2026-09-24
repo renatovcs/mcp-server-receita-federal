@@ -25,6 +25,9 @@ RUN mkdir -p /app/data
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
+# Pré-instala extensões DuckDB para evitar download em runtime sob read_only
+RUN python -c "import duckdb; conn = duckdb.connect(); conn.execute('INSTALL fts;')"
+
 ENV HOST=0.0.0.0
 ENV PORT=8005
 ENV DUCKDB_PATH=/app/data/rmc_empresas.duckdb
