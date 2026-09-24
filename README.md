@@ -151,13 +151,73 @@ if __name__ == "__main__":
 
 ---
 
+---
+
+## 🔑 Autenticação e Gestão de Tokens (API Key)
+
+Por segurança operacional, todas as rotas do servidor MCP (`/sse` e `/messages`) exigem validação de chave de autenticação (a rota `/health` é pública para probes de monitoramento).
+
+### Como autenticar suas requisições:
+O servidor aceita o token de três formas padronizadas:
+1. **Via Query Parameter na URL (Mais simples para MCP):**
+   ```text
+   https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123
+   ```
+2. **Via Header HTTP `X-API-Key`:**
+   ```http
+   X-API-Key: anotae-receita-dev-key-123
+   ```
+3. **Via Header HTTP `Authorization`:**
+   ```http
+   Authorization: Bearer anotae-receita-dev-key-123
+   ```
+
+### Token padrão atual:
+* **Token público de desenvolvimento:** `anotae-receita-dev-key-123`
+
+### Como gerar um novo token seguro para sua própria instância:
+Caso queira alterar a chave da sua instalação em produção:
+1. Gere um hash criptograficamente seguro no terminal:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(24))"
+   # Exemplo gerado: 4f8b2c1e7a9d0e3f5b6a1c8d2e4f0a9b3c5e7f1a2b4c6d8e
+   ```
+2. Configure a variável `API_KEY` no seu arquivo `.env` ou no `docker-compose.yml`:
+   ```yaml
+   environment:
+     - API_KEY=seu_novo_token_gerado_aqui
+   ```
+3. Reinicie o serviço:
+   ```bash
+   docker compose up -d --build
+   ```
+
+---
+
 ### 5. Teste Visual Interativo (MCP Inspector)
 
-Você pode inspecionar e testar as ferramentas visualmente pelo terminal sem precisar abrir um LLM:
+O **MCP Inspector** é a ferramenta oficial da Anthropic para inspecionar, depurar e executar ferramentas MCP diretamente pelo navegador, sem precisar abrir um LLM.
 
-```bash
+#### ⚠️ Importante para usuários de Windows (PowerShell):
+No PowerShell, URLs contendo `?` ou `=` **precisam obrigatoriamente estar entre aspas duplas**, e o protocolo deve ser **`https://`**:
+
+```powershell
 npx @modelcontextprotocol/inspector "https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123"
 ```
+
+#### Passo a passo na interface web do Inspector:
+Quando o comando for executado, o MCP Inspector abrirá uma aba no seu navegador (`http://127.0.0.1:6274?...`):
+
+1. **Transport Type:** Selecione `SSE` (Server-Sent Events).
+2. **URL:** Certifique-se de que a URL no campo contenha `https://` e o parâmetro `?token=...`:
+   ```text
+   https://mcp-receita.anotae.app.br/sse?token=anotae-receita-dev-key-123
+   ```
+   *(Ou, alternativamente, deixe a URL limpa e adicione em **Headers** o campo `X-API-Key` com o valor `anotae-receita-dev-key-123`)*.
+3. Clique no botão **Connect**.
+4. Quando a bolinha de status ficar verde (**Connected**):
+   - Vá na aba **Tools** e clique em **List Tools**.
+   - Você verá as 6 ferramentas da Receita Federal disponíveis com todos os parâmetros e documentação interativa para teste!
 
 ---
 
