@@ -1,5 +1,5 @@
 """
-Script para unificar os arquivos Parquet da RMC e RMRJ em um banco DuckDB consolidado
+Script para unificar os arquivos Parquet da RMC, RMRJ e RMSP em um banco DuckDB consolidado
 com índice Full-Text Search (FTS BM25) para busca rápida de empresas.
 """
 
@@ -22,6 +22,7 @@ DATA_DIR = BASE_DIR / "data"
 
 PARQUET_RMC = DATA_DIR / "empresas_ativas_rmc.parquet"
 PARQUET_RMRJ = DATA_DIR / "empresas_ativas_rmrj.parquet"
+PARQUET_RMSP = DATA_DIR / "empresas_ativas_rmsp.parquet"
 OUTPUT_DB = DATA_DIR / "empresas_ativas.duckdb"
 TABLE_NAME = "tb_empresas_ativas"
 
@@ -32,6 +33,9 @@ def unificar_e_indexar():
         sys.exit(1)
     if not PARQUET_RMRJ.exists():
         logger.error(f"Arquivo não encontrado: {PARQUET_RMRJ}")
+        sys.exit(1)
+    if not PARQUET_RMSP.exists():
+        logger.error(f"Arquivo não encontrado: {PARQUET_RMSP}")
         sys.exit(1)
 
     if OUTPUT_DB.exists():
@@ -47,21 +51,31 @@ def unificar_e_indexar():
         logger.info("Carregando extensão FTS...")
         conn.execute("INSTALL fts; LOAD fts;")
 
-        logger.info("Importando e unificando datasets Parquet (RMC + RMRJ)...")
+        logger.info("Importando e unificando datasets Parquet (RMC + RMRJ + RMSP)...")
         t0 = time.perf_counter()
         
-        # Cria a tabela consolidada unificando os parquets
+        # Cria a tabela consolidada unificando os três parquets
         conn.execute(f"""
             CREATE TABLE {TABLE_NAME} AS
             SELECT * FROM read_parquet('{PARQUET_RMC}')
             UNION ALL
-            SELECT * FROM read_parquet('{PARQUET_RMRJ}');
+            SELECT * FROM read_parquet('{PARQUET_RMRJ}')
+            UNION ALL
+            SELECT * FROM read_parquet('{PARQUET_RMSP}');
         """)
         
-        # Cria também uma VIEW tb_empresas_ativas_rmc para retrocompatibilidade
+        # Cria VIEWs para retrocompatibilidade por região
         conn.execute(f"""
             CREATE VIEW tb_empresas_ativas_rmc AS
             SELECT * FROM {TABLE_NAME} WHERE uf = 'PR';
+        """)
+        conn.execute(f"""
+            CREATE VIEW tb_empresas_ativas_rmrj AS
+            SELECT * FROM {TABLE_NAME} WHERE uf = 'RJ';
+        """)
+        conn.execute(f"""
+            CREATE VIEW tb_empresas_ativas_rmsp AS
+            SELECT * FROM {TABLE_NAME} WHERE uf = 'SP';
         """)
 
         t_import = time.perf_counter() - t0
@@ -128,6 +142,22 @@ def unificar_e_indexar():
         """).fetchall()
         for r in res_pr:
             logger.info(f"  [PR Match] {r[1]} - {r[2]}/{r[3]} (Score: {r[4]:.4f})")
+
+        # Teste de validação 3: Busca em SP
+        logger.info("Testando busca FTS em São Paulo ('energia solar')...")
+        res_sp = conn.execute(f"""
+            SELECT cnpj, razao_social, municipio, uf, score
+            FROM (
+                SELECT cnpj, razao_social, municipio, uf,
+                       fts_main_{TABLE_NAME}.match_bm25(cnpj, 'energia solar') AS score
+                FROM {TABLE_NAME}
+            ) sq
+            WHERE score IS NOT NULL AND uf = 'SP'
+            ORDER BY score DESC
+            LIMIT 2;
+        """).fetchall()
+        for r in res_sp:
+            logger.info(f"  [SP Match] {r[1]} - {r[2]}/{r[3]} (Score: {r[4]:.4f})")
 
         db_size_mb = os.path.getsize(OUTPUT_DB) / (1024 * 1024)
         total_time = time.perf_counter() - start_total

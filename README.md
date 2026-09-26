@@ -20,9 +20,10 @@ Permite que agentes de Inteligência Artificial (LangGraph, assistentes LLM, Cur
   ```text
   https://mcp-receita.anotae.app.br/metrics
   ```
-* **Cobertura Atual:** **+2.328.000 empresas ativas**
-  * **Rio de Janeiro (RJ):** ~1.571.000 empresas ativas
-  * **Paraná (PR):** ~756.000 empresas ativas
+* **Cobertura Atual:** **+6.480.000 empresas ativas**
+  * **São Paulo (SP):** ~4.155.000 empresas ativas (Região Metropolitana de São Paulo - RMSP)
+  * **Rio de Janeiro (RJ):** ~1.571.000 empresas ativas (Região Metropolitana do Rio de Janeiro - RMRJ)
+  * **Paraná (PR):** ~756.000 empresas ativas (Região Metropolitana de Curitiba - RMC)
 
 ---
 
@@ -227,9 +228,9 @@ Quando o comando for executado, o MCP Inspector abrirá uma aba no seu navegador
 Busca empresas ativas utilizando índice Full-Text Search (FTS BM25) na descrição da atividade econômica principal (CNAE).
 * **Parâmetros:**
   * `query` *(string, obrigatório)*: Atividade ou termo do serviço (ex: `"energia solar"`, `"ar condicionado"`, `"eletricista"`).
-  * `uf` *(string, opcional)*: Estado/UF para filtragem (ex: `"RJ"` ou `"PR"`).
-  * `municipio` *(string, opcional)*: Nome da cidade (ex: `"Niterói"`, `"Curitiba"`, `"Rio de Janeiro"`).
-  * `bairro` *(string, opcional)*: Nome do bairro ou região (ex: `"Batel"`, `"Centro"`, `"Barra da Tijuca"`).
+  * `uf` *(string, opcional)*: Estado/UF para filtragem (ex: `"SP"`, `"RJ"` ou `"PR"`).
+  * `municipio` *(string, opcional)*: Nome da cidade (ex: `"São Paulo"`, `"Curitiba"`, `"Rio de Janeiro"`, `"Guarulhos"`).
+  * `bairro` *(string, opcional)*: Nome do bairro ou região (ex: `"Batel"`, `"Centro"`, `"Barra da Tijuca"`, `"Pinheiros"`).
   * `limit` *(integer, opcional, padrão 15, máx 100)*: Quantidade máxima de registros retornados.
   * `offset` *(integer, opcional, padrão 0)*: Deslocamento para paginação de resultados.
 * **Ordenação:** Relevância textual (`score DESC`) e experiência de mercado (`idade_anos DESC`).
@@ -243,15 +244,15 @@ Retorna a ficha cadastral completa de uma empresa ativa através do CNPJ.
 ### 3. `list_available_cities`
 Lista os municípios cobertos pela base e a contagem de empresas ativas em cada localidade.
 * **Parâmetros:**
-  * `uf` *(string, opcional)*: Filtra apenas as cidades do estado especificado (ex: `"RJ"` ou `"PR"`).
+  * `uf` *(string, opcional)*: Filtra apenas as cidades do estado especificado (ex: `"SP"`, `"RJ"` ou `"PR"`).
 * **Retorno:** Lista contendo `municipio`, `uf` e `total_empresas`.
 
 ### 4. `analyze_market_competition`
 Executa uma análise de inteligência de mercado agregando dados reais sobre um segmento.
 * **Parâmetros:**
   * `query` *(string, obrigatório)*: Segmento ou nicho de mercado (ex: `"energia solar"`, `"construtora"`).
-  * `uf` *(string, opcional)*: Foca a análise em um Estado (ex: `"RJ"` ou `"PR"`).
-  * `municipio` *(string, opcional)*: Foca a análise em um município (ex: `"Curitiba"`).
+  * `uf` *(string, opcional)*: Foca a análise em um Estado (ex: `"SP"`, `"RJ"` ou `"PR"`).
+  * `municipio` *(string, opcional)*: Foca a análise em um município (ex: `"São Paulo"`, `"Curitiba"`, `"Rio de Janeiro"`).
 * **Retorno:** Relatório detalhado com o total de empresas concorrentes, média de capital social no setor, média de tempo de mercado (idade das empresas) e os 5 bairros com maior concentração deste serviço.
 
 ### 5. `get_biggest_companies_by_capital`
@@ -268,8 +269,8 @@ Busca os líderes de mercado e empresas de grande porte em um segmento, ordenada
 Busca uma empresa ativa diretamente pelo seu nome exato ou parte dele (Razão Social ou Nome Fantasia).
 * **Parâmetros:**
   * `name` *(string, obrigatório)*: Nome da empresa (ex: `"Oficina do João"`, `"Tech Solutions LTDA"`).
-  * `uf` *(string, opcional)*: Limitar a busca a um Estado (ex: `"PR"` ou `"RJ"`).
-  * `municipio` *(string, opcional)*: Limitar a busca a um Município (ex: `"Curitiba"`, `"Rio de Janeiro"`).
+  * `uf` *(string, opcional)*: Limitar a busca a um Estado (ex: `"SP"`, `"RJ"` ou `"PR"`).
+  * `municipio` *(string, opcional)*: Limitar a busca a um Município (ex: `"São Paulo"`, `"Curitiba"`, `"Rio de Janeiro"`).
   * `limit` *(integer, opcional, padrão 15)*: Quantidade de empresas a retornar.
   * `offset` *(integer, opcional, padrão 0)*: Deslocamento para paginação.
 * **Retorno:** Lista de empresas correspondentes.
@@ -348,9 +349,10 @@ python -m unittest tests/test_tools.py
 ```text
 mcp-server-receita-federal/
 ├── data/
-│   ├── empresas_ativas.duckdb            # Base unificada com 2.3M de empresas e índice FTS BM25
-│   ├── empresas_ativas_rmc.parquet       # Dataset colunar Parquet (Curitiba/PR)
-│   └── empresas_ativas_rmrj.parquet      # Dataset colunar Parquet (Rio de Janeiro/RJ)
+│   ├── empresas_ativas.duckdb            # Base unificada com 6.48M de empresas e índice FTS BM25
+│   ├── empresas_ativas_rmsp.parquet      # Dataset colunar Parquet (São Paulo/SP)
+│   ├── empresas_ativas_rmrj.parquet      # Dataset colunar Parquet (Rio de Janeiro/RJ)
+│   └── empresas_ativas_rmc.parquet       # Dataset colunar Parquet (Curitiba/PR)
 ├── scripts/
 │   ├── unificar_bases.py                 # Pipeline de consolidação e criação do índice FTS BM25
 │   └── create_fts_index.py               # Utilitário para reconstrução de índices

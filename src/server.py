@@ -1,7 +1,7 @@
 """
 Servidor MCP (Model Context Protocol) para consulta de dados abertos da Receita Federal.
 Registra as ferramentas padronizadas para consumo por agentes e clientes MCP.
-Suporta consultas unificadas em múltiplas regiões (Paraná e Rio de Janeiro).
+Suporta consultas unificadas em múltiplas regiões (Paraná, Rio de Janeiro e São Paulo).
 """
 
 from typing import Any, Dict, List, Optional
@@ -21,7 +21,7 @@ from src.tools import (
 # Cria a instância do servidor MCP com metadados do serviço
 mcp_server = MCPServer(
     name=settings.SERVICE_NAME,
-    instructions="Servidor MCP público para busca analítica de prestadores e empresas ativas da Receita Federal (PR e RJ).",
+    instructions="Servidor MCP público para busca analítica de prestadores e empresas ativas da Receita Federal (PR, RJ e SP).",
 )
 
 
@@ -39,9 +39,9 @@ def search_providers_by_service(
 
     Args:
         query: Termo de busca (ex: 'ar condicionado', 'refrigeração', 'eletricista', 'pintor', 'energia solar').
-        uf: (Opcional) Estado para filtrar os resultados (ex: 'PR' ou 'RJ').
-        municipio: (Opcional) Nome da cidade para filtrar os resultados (ex: 'Curitiba', 'Rio de Janeiro', 'Niterói').
-        bairro: (Opcional) Nome do bairro ou região (ex: 'Batel', 'Centro', 'Barra da Tijuca').
+        uf: (Opcional) Estado para filtrar os resultados (ex: 'PR', 'RJ' ou 'SP').
+        municipio: (Opcional) Nome da cidade para filtrar os resultados (ex: 'Curitiba', 'Rio de Janeiro', 'São Paulo', 'Guarulhos').
+        bairro: (Opcional) Nome do bairro ou região (ex: 'Batel', 'Centro', 'Barra da Tijuca', 'Pinheiros').
         limit: Quantidade máxima de registros a retornar (padrão 15, máx 100).
         offset: Deslocamento para paginação de resultados (padrão 0).
     """
@@ -67,7 +67,7 @@ def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica
     Lista todos os municípios cobertos na base de dados com a quantidade total de empresas ativas em cada um.
 
     Args:
-        uf: (Opcional) Filtrar cidades por Estado (ex: 'PR' ou 'RJ').
+        uf: (Opcional) Filtrar cidades por Estado (ex: 'PR', 'RJ' ou 'SP').
     """
     return db_list_available_cities(uf=uf)
 
@@ -83,8 +83,8 @@ def analyze_market_competition(
 
     Args:
         query: Termo de busca que define o segmento/nicho de mercado (ex: 'energia solar', 'construtora', 'pet shop').
-        uf: (Opcional) Estado para concentrar a análise (ex: 'PR' ou 'RJ').
-        municipio: (Opcional) Nome da cidade para focar a análise (ex: 'Curitiba', 'Rio de Janeiro').
+        uf: (Opcional) Estado para concentrar a análise (ex: 'PR', 'RJ' ou 'SP').
+        municipio: (Opcional) Nome da cidade para focar a análise (ex: 'Curitiba', 'Rio de Janeiro', 'São Paulo').
     """
     return db_analyze_market_competition(query=query, uf=uf, municipio=municipio)
 
@@ -102,8 +102,8 @@ def get_biggest_companies_by_capital(
 
     Args:
         query: Termo de busca do serviço ou produto (ex: 'construtora', 'tecnologia', 'transporte').
-        uf: (Opcional) Estado para focar a busca (ex: 'PR' ou 'RJ').
-        municipio: (Opcional) Nome da cidade para focar a busca (ex: 'Curitiba').
+        uf: (Opcional) Estado para focar a busca (ex: 'PR', 'RJ' ou 'SP').
+        municipio: (Opcional) Nome da cidade para focar a busca (ex: 'Curitiba', 'São Paulo').
         limit: Quantidade máxima de resultados (padrão 5, máx 100).
         offset: Deslocamento para paginação (padrão 0).
     """
@@ -125,8 +125,8 @@ def search_company_by_name(
 
     Args:
         name: O nome da empresa (ex: 'Oficina do João', 'Tech Solutions LTDA').
-        uf: (Opcional) Limitar a busca a um Estado (ex: 'PR', 'RJ').
-        municipio: (Opcional) Limitar a busca a um Município (ex: 'Curitiba', 'Rio de Janeiro').
+        uf: (Opcional) Limitar a busca a um Estado (ex: 'PR', 'RJ', 'SP').
+        municipio: (Opcional) Limitar a busca a um Município (ex: 'Curitiba', 'Rio de Janeiro', 'São Paulo').
         limit: Quantidade máxima de resultados (padrão 15).
         offset: Deslocamento para paginação (padrão 0).
     """

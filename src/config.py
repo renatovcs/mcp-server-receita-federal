@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 class Settings(BaseModel):
     SERVICE_NAME: str = "anotae-mcp-receita"
-    SERVICE_VERSION: str = "0.1.0"
+    SERVICE_VERSION: str = "0.2.0"
     HOST: str = Field(default_factory=lambda: os.getenv("HOST", "0.0.0.0"))
     PORT: int = Field(default_factory=lambda: int(os.getenv("PORT", "8005")))
     API_KEY: str = Field(default_factory=lambda: os.getenv("API_KEY", "anotae-receita-dev-key-123"))

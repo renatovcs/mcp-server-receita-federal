@@ -72,7 +72,8 @@ class TestMCPTools(unittest.TestCase):
                 ('81.172.264/0001-24', '81172264', 'SOLAR CURITIBA LTDA', 'SOLAR PR', 1, 'ME', 150000.0, '2062', 'SOCIEDADE EMPRESARIA LIMITADA', '2015-01-01', 9.5, '4321500', 'instalacao e manutencao de paineis de energia solar e ar condicionado', NULL, 'RUA', 'XV DE NOVEMBRO', '100', NULL, 'CENTRO', '80020-000', 'Curitiba', 'PR', 'RUA XV DE NOVEMBRO, 100, CENTRO, Curitiba - PR', '4133334444', NULL, 'contato@solar.com'),
                 ('02.993.750/0001-37', '02993750', 'CLINICA BATEL MEDICINA LTDA', 'CLINICA BATEL', 1, 'EPP', 500000.0, '2062', 'SOCIEDADE EMPRESARIA LIMITADA', '2010-05-10', 14.2, '8630501', 'atividade medica ambulatorial e clinica geral', NULL, 'AV', 'BATEL', '1230', NULL, 'BATEL', '80420-090', 'Curitiba', 'PR', 'AV BATEL, 1230, BATEL, Curitiba - PR', '4132221111', NULL, 'clinica@batel.com'),
                 ('12.345.678/0001-90', '12345678', 'RIO ENERGIA SOLAR E ELETRICIDADE S.A.', 'RIO SOLAR', 1, 'DEMAIS', 50000000.0, '2054', 'SOCIEDADE ANONIMA FECHADA', '2005-03-15', 19.3, '4321500', 'instalacao de geradores de energia solar e refrigeracao predial', NULL, 'AV', 'RIO BRANCO', '1', NULL, 'CENTRO', '20040-001', 'Rio de Janeiro', 'RJ', 'AV RIO BRANCO, 1, CENTRO, Rio de Janeiro - RJ', '2122223333', NULL, 'diretoria@riosolar.com'),
-                ('99.888.777/0001-11', '99888777', 'BARRA CLIMA AR CONDICIONADO LTDA', 'BARRA CLIMA', 1, 'ME', 80000.0, '2062', 'SOCIEDADE EMPRESARIA LIMITADA', '2018-08-20', 6.1, '4322302', 'instalacao e manutencao de sistemas centrais de ar condicionado e ventilacao', NULL, 'AV', 'DAS AMERICAS', '500', NULL, 'BARRA DA TIJUCA', '22640-100', 'Rio de Janeiro', 'RJ', 'AV DAS AMERICAS, 500, BARRA DA TIJUCA, Rio de Janeiro - RJ', '2133335555', NULL, 'contato@barraclima.com');
+                ('99.888.777/0001-11', '99888777', 'BARRA CLIMA AR CONDICIONADO LTDA', 'BARRA CLIMA', 1, 'ME', 80000.0, '2062', 'SOCIEDADE EMPRESARIA LIMITADA', '2018-08-20', 6.1, '4322302', 'instalacao e manutencao de sistemas centrais de ar condicionado e ventilacao', NULL, 'AV', 'DAS AMERICAS', '500', NULL, 'BARRA DA TIJUCA', '22640-100', 'Rio de Janeiro', 'RJ', 'AV DAS AMERICAS, 500, BARRA DA TIJUCA, Rio de Janeiro - RJ', '2133335555', NULL, 'contato@barraclima.com'),
+                ('33.444.555/0001-22', '33444555', 'PAULISTA ENERGIA SOLAR LTDA', 'PAULISTA SOLAR', 1, 'EPP', 300000.0, '2062', 'SOCIEDADE EMPRESARIA LIMITADA', '2016-04-12', 8.2, '4321500', 'instalacao e manutencao de paineis de energia solar', NULL, 'AV', 'PAULISTA', '1000', NULL, 'BELA VISTA', '01310-100', 'São Paulo', 'SP', 'AV PAULISTA, 1000, BELA VISTA, São Paulo - SP', '1133334444', NULL, 'contato@paulistasolar.com');
             """)
             conn.execute("INSTALL fts; LOAD fts;")
             conn.execute("""
@@ -103,6 +104,7 @@ class TestMCPTools(unittest.TestCase):
         city_names = [c.municipio for c in cities]
         self.assertIn("Rio de Janeiro", city_names)
         self.assertIn("Curitiba", city_names)
+        self.assertIn("São Paulo", city_names)
 
         # Filtro por UF
         rj_cities = list_available_cities(uf="RJ")
@@ -112,6 +114,10 @@ class TestMCPTools(unittest.TestCase):
         pr_cities = list_available_cities(uf="PR")
         for c in pr_cities:
             self.assertEqual(c.uf, "PR")
+
+        sp_cities = list_available_cities(uf="SP")
+        for c in sp_cities:
+            self.assertEqual(c.uf, "SP")
 
     def test_02_search_providers_by_service_pr(self):
         results = search_providers_by_service(
@@ -142,6 +148,21 @@ class TestMCPTools(unittest.TestCase):
         for provider in results:
             self.assertIsNotNone(provider.cnpj)
             self.assertEqual(provider.uf, "RJ")
+            self.assertGreater(provider.fts_score, 0)
+
+    def test_03b_search_providers_by_service_sp(self):
+        results = search_providers_by_service(
+            query="solar",
+            uf="SP",
+            municipio="São Paulo",
+            limit=5,
+        )
+        self.assertIsInstance(results, list)
+        self.assertGreater(len(results), 0)
+
+        for provider in results:
+            self.assertIsNotNone(provider.cnpj)
+            self.assertEqual(provider.uf, "SP")
             self.assertGreater(provider.fts_score, 0)
 
     def test_04_search_providers_pagination_and_bairro(self):

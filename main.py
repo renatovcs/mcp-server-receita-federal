@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title=settings.SERVICE_NAME,
     version=settings.SERVICE_VERSION,
-    description="Servidor MCP público para busca analítica de prestadores e empresas ativas da Receita Federal na RMC.",
+    description="Servidor MCP público para busca analítica de prestadores e empresas ativas da Receita Federal na RMC, RMRJ e RMSP.",
     lifespan=lifespan,
 )
 

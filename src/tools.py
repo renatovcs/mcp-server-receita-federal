@@ -2,7 +2,7 @@
 Implementação das ferramentas (Tools) do Model Context Protocol (MCP).
 Todas as consultas utilizam estritamente Prepared Statements (bind variables com `?`).
 Busca textual otimizada via DuckDB Full-Text Search (FTS BM25).
-Suporta busca em todas as regiões cadastradas (Paraná, Rio de Janeiro e futuras expansões).
+Suporta busca em todas as regiões cadastradas (Paraná, Rio de Janeiro, São Paulo e futuras expansões).
 """
 
 import re
@@ -49,9 +49,9 @@ def search_providers_by_service(
 
     Args:
         query: Termo ou expressão do serviço (ex: 'ar condicionado', 'eletricista', 'energia solar').
-        uf: Filtro opcional por Unidade Federativa / Estado (ex: 'PR', 'RJ').
-        municipio: Filtro opcional por município (ex: 'Curitiba', 'Rio de Janeiro', 'Niterói').
-        bairro: Filtro opcional por bairro ou região (ex: 'Batel', 'Centro', 'Barra da Tijuca').
+        uf: Filtro opcional por Unidade Federativa / Estado (ex: 'PR', 'RJ', 'SP').
+        municipio: Filtro opcional por município (ex: 'Curitiba', 'Rio de Janeiro', 'São Paulo').
+        bairro: Filtro opcional por bairro ou região (ex: 'Batel', 'Centro', 'Barra da Tijuca', 'Pinheiros').
         limit: Quantidade máxima de resultados (padrão 15, máximo 100).
         offset: Deslocamento para paginação de resultados (padrão 0).
 
@@ -212,7 +212,7 @@ def get_provider_details(cnpj: str) -> Optional[EmpresaDetalhe]:
 def list_available_cities(uf: Optional[str] = None) -> List[MunicipioEstatistica]:
     """
     Retorna os municípios disponíveis na base com a contagem de empresas ativas.
-    Pode ser filtrado opcionalmente por UF (ex: 'PR' ou 'RJ').
+    Pode ser filtrado opcionalmente por UF (ex: 'PR', 'RJ' ou 'SP').
 
     Returns:
         Lista ordenada por volume de empresas ativas.
